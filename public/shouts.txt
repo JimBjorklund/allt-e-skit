@@ -1,0 +1,5 @@
+# Shout lines, one per line. Lines starting with # are ignored.
+# PLACEHOLDERS - replace these with your own.
+NOT AGAIN!
+WHY ME?!
+I SHOULD HAVE WALKED!

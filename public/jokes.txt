@@ -1,0 +1,6 @@
+# Internal jokes, one per line. They appear on roadside signs. Lines starting with # are ignored.
+# PLACEHOLDERS - replace these with your own.
+Welcome to the village
+Mechanic: closed for lunch
+Next petrol station: far
+Slow down. Or don't.

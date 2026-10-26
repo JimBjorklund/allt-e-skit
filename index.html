@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23e8452c'/%3E%3C/svg%3E" />
+  <title>Allt e skit</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd3ff; font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; color: #222; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    .hud { position: fixed; pointer-events: none; user-select: none; }
+    #title { top: 12px; left: 16px; font-size: 26px; font-weight: 800; color: #fff; text-shadow: 0 2px 0 #c0392b, 0 0 8px rgba(0,0,0,.4); letter-spacing: 1px; }
+    #stats { top: 14px; right: 16px; text-align: right; font-weight: 700; font-size: 18px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); line-height: 1.5; }
+    #progress { width: 220px; height: 8px; background: rgba(0,0,0,.35); border-radius: 4px; margin-top: 4px; margin-left: auto; overflow: hidden; }
+    #progress > div { height: 100%; width: 0; background: #ffd93b; }
+    #meter-wrap { bottom: 18px; left: 16px; width: 240px; }
+    #meter-label { font-weight: 800; font-size: 14px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); margin-bottom: 3px; }
+    #meter { height: 16px; background: rgba(0,0,0,.4); border-radius: 8px; overflow: hidden; border: 2px solid #fff; }
+    #meter > div { height: 100%; width: 0; background: linear-gradient(90deg, #7bd34b, #ffd93b, #e8452c); background-size: 240px 100%; }
+    #help { bottom: 18px; right: 16px; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); text-align: right; line-height: 1.5; }
+    #speed { bottom: 56px; left: 16px; font-size: 40px; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
+    #speed small { font-size: 16px; }
+    #fix-panel { left: 50%; top: 36%; transform: translateX(-50%); background: rgba(255,255,255,.93); border: 4px solid #e8452c; border-radius: 14px; padding: 12px 24px; text-align: center; min-width: 300px; box-shadow: 0 6px 0 rgba(0,0,0,.25); }
+    #fix-title { font-size: 24px; font-weight: 800; color: #c0392b; }
+    #fix-text { font-size: 18px; margin: 4px 0 8px; }
+    #fix-arrows { font-size: 40px; font-weight: 800; letter-spacing: 6px; }
+    .arrow { display: inline-block; width: 52px; height: 52px; line-height: 52px; margin: 0 4px; border-radius: 10px; background: #ddd; border: 3px solid #999; }
+    .arrow.done { background: #7bd34b; border-color: #3d8b1f; color: #fff; }
+    .arrow.next { border-color: #e8452c; background: #fff; }
+    #fix-bar { height: 14px; background: #ddd; border-radius: 7px; overflow: hidden; border: 2px solid #999; }
+    #fix-bar > div { height: 100%; width: 0; background: #7bd34b; }
+    #shout-bubble { left: 50%; top: 9%; transform: translateX(-50%) rotate(-2deg); max-width: 70vw; background: #fff; border: 6px solid #111; border-radius: 40px; padding: 18px 34px; font-size: 44px; font-weight: 900; text-align: center; text-transform: uppercase; color: #c0392b; box-shadow: 0 8px 0 rgba(0,0,0,.3); }
+    #shout-bubble::after { content: ''; position: absolute; left: 50%; bottom: -34px; margin-left: -20px; border: 20px solid transparent; border-top: 30px solid #111; }
+    #joke { bottom: 90px; left: 50%; transform: translateX(-50%); font-size: 18px; font-weight: 700; color: #fff; background: rgba(0,0,0,.45); padding: 4px 14px; border-radius: 12px; }
+    #finish-screen { inset: 0; background: rgba(20,30,60,.72); display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+    #finish-card { background: #fff; border: 6px solid #ffd93b; border-radius: 20px; padding: 28px 44px; text-align: center; box-shadow: 0 10px 0 rgba(0,0,0,.3); }
+    #finish-card h1 { margin: 0 0 12px; font-size: 40px; color: #c0392b; }
+    #finish-card p { font-size: 22px; margin: 6px 0; }
+    #ride-again { margin-top: 16px; font-size: 24px; font-weight: 800; padding: 10px 30px; border: 0; border-radius: 12px; background: #e8452c; color: #fff; cursor: pointer; box-shadow: 0 5px 0 #922; }
+    #ride-again:hover { background: #f25a42; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="title" class="hud">Allt e skit</div>
+  <div id="stats" class="hud">
+    <div>Time <span id="time">0:00</span></div>
+    <div id="progress"><div></div></div>
+  </div>
+  <div id="speed" class="hud"><span id="speed-val">0</span> <small>km/h</small></div>
+  <div id="meter-wrap" class="hud">
+    <div id="meter-label">FRUSTRATION</div>
+    <div id="meter"><div></div></div>
+  </div>
+  <div id="help" class="hud">W/&uarr; throttle &middot; S/&darr; brake &middot; A D/&larr; &rarr; steer<br>Space kick-start &middot; E fix</div>
+  <div id="joke" class="hud" hidden></div>
+  <div id="fix-panel" class="hud" hidden>
+    <div id="fix-title"></div>
+    <div id="fix-text"></div>
+    <div id="fix-arrows"></div>
+    <div id="fix-bar"><div></div></div>
+  </div>
+  <div id="shout-bubble" class="hud" hidden></div>
+  <div id="finish-screen" class="hud" hidden>
+    <div id="finish-card">
+      <h1>You made it!</h1>
+      <p>Time: <b id="f-time"></b></p>
+      <p>Breakdowns: <b id="f-breakdowns"></b></p>
+      <p>Shouts: <b id="f-shouts"></b></p>
+      <button id="ride-again">Ride again</button>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
