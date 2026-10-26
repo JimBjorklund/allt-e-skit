@@ -38,6 +38,12 @@
     #finish-card p { font-size: 22px; margin: 6px 0; }
     #ride-again { margin-top: 16px; font-size: 24px; font-weight: 800; padding: 10px 30px; border: 0; border-radius: 12px; background: #e8452c; color: #fff; cursor: pointer; box-shadow: 0 5px 0 #922; }
     #ride-again:hover { background: #f25a42; }
+    #start-screen { inset: 0; background: rgba(20,30,60,.55); display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: pointer; }
+    #start-card { background: #fff; border: 6px solid #e8452c; border-radius: 20px; padding: 26px 44px; text-align: center; box-shadow: 0 10px 0 rgba(0,0,0,.3); max-width: 520px; }
+    #start-card h1 { margin: 0 0 6px; font-size: 48px; color: #c0392b; }
+    #start-card p { margin: 6px 0; font-size: 18px; }
+    #start-btn { margin-top: 14px; font-size: 26px; font-weight: 800; padding: 12px 36px; border: 0; border-radius: 12px; background: #e8452c; color: #fff; cursor: pointer; box-shadow: 0 5px 0 #922; }
+    #start-hint { font-size: 15px; color: #555; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -69,6 +75,15 @@
       <p>Breakdowns: <b id="f-breakdowns"></b></p>
       <p>Shouts: <b id="f-shouts"></b></p>
       <button id="ride-again">Ride again</button>
+    </div>
+  </div>
+  <div id="start-screen" class="hud">
+    <div id="start-card">
+      <h1>Allt e skit</h1>
+      <p>Ride to the finish. Your moped will break down. A lot.</p>
+      <p><b>W</b> go &middot; <b>S</b> brake &middot; <b>A D</b> steer<br><b>Space</b> kick-start &middot; <b>E</b> fix &middot; arrow keys for the chain</p>
+      <button id="start-btn">Start riding</button>
+      <p id="start-hint">or press any key</p>
     </div>
   </div>
   <script type="module" src="/src/main.js"></script>

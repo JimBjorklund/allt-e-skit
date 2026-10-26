@@ -51,6 +51,17 @@ async function start() {
   const hud = createHud(game, { onRestart: () => { game.restart(); signsSeen.clear(); } });
   const signsSeen = new Set();
 
+  let started = false;
+  const startScreen = document.getElementById('start-screen');
+  function begin() {
+    if (started) return;
+    started = true;
+    startScreen.hidden = true;
+    audio.unlock();
+  }
+  window.addEventListener('keydown', begin);
+  startScreen.addEventListener('pointerdown', begin);
+
   let fps = 60;
   const camPos = new THREE.Vector3();
   const camLook = new THREE.Vector3();
@@ -90,6 +101,12 @@ async function start() {
     if (dt > 0) fps += (1 / dt - fps) * 0.1;
 
     const inp = input.read();
+    if (!started) {
+      updateCamera(dt);
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+      return;
+    }
     if (inp.presses.includes('kick') && game.state === 'broken') audio.kick();
     game.update(dt, inp);
     handleEvents();
@@ -127,6 +144,7 @@ async function start() {
   if (exposeDebug) {
     window.__game = {
       ready: true,
+      get started() { return started; },
       length: game.length,
       get position() { return { x: game.moped.x, z: game.moped.z }; },
       get speed() { return game.moped.speed; },

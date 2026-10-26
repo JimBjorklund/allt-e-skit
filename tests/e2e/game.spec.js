@@ -16,6 +16,13 @@ test.beforeEach(async ({ page }) => {
   await page.goto('./?breakdowns=off');
   await page.waitForFunction(() => window.__game && window.__game.ready);
   await page.waitForTimeout(500);
+  await expect(page.locator('#start-screen')).toBeVisible();
+  await expect(page.locator('#start-screen')).toContainText(/start/i);
+  expect(await g(page, 'G.started')).toBe(false);
+  await shot(page, '00-start-screen');
+  await page.locator('#start-btn').click();
+  await expect(page.locator('#start-screen')).toBeHidden();
+  expect(await g(page, 'G.started')).toBe(true);
 });
 test.afterEach(() => {
   expect(errors, 'console errors').toEqual([]);
