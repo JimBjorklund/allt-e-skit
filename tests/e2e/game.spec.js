@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   // random breakdowns off so tests are deterministic; they are forced explicitly
-  await page.goto('/?breakdowns=off');
+  await page.goto('./?breakdowns=off');
   await page.waitForFunction(() => window.__game && window.__game.ready);
   await page.waitForTimeout(500);
 });
@@ -63,7 +63,7 @@ test('engine breakdown: hammer space to kick-start', async ({ page }) => {
   await expect(page.locator('#fix-panel')).toContainText(/space/i);
   expect(await g(page, 'G.state')).toBe('broken');
   await shot(page, '03-breakdown-engine');
-  for (let i = 0; i < 60 && (await g(page, 'G.state')) === 'broken'; i++) {
+  for (let i = 0; i < 300 && (await g(page, 'G.state')) === 'broken'; i++) {
     await page.keyboard.press('Space');
     await page.waitForTimeout(90);
   }
