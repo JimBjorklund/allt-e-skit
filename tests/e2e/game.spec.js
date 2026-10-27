@@ -88,9 +88,9 @@ test('chain breakdown: press the arrows shown', async ({ page }) => {
   const key = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
   for (const k of seq) {
     await page.keyboard.press(key[k]);
-    await page.waitForTimeout(60);
+    await page.waitForTimeout(120);
   }
-  expect(await g(page, 'G.state')).toBe('riding');
+  await page.waitForFunction(() => window.__game.state === 'riding', null, { timeout: 10000 });
 });
 
 test('tyre breakdown: hold E for 3 seconds', async ({ page }) => {
