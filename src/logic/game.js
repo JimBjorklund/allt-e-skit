@@ -2,6 +2,8 @@ import { createMoped, stepMoped } from './driving.js';
 import { createBreakdown, BREAKDOWN_TYPES } from './breakdown.js';
 import { createFrustration, pickShout } from './frustration.js';
 import { roadCenterX, ROAD_LENGTH } from './road.js';
+import { createObstacleField } from './collision.js';
+import { generateWorld } from './world.js';
 
 export const BREAKDOWN_FRUSTRATION = 25;
 export const KICK_FAIL_FRUSTRATION = 10;
@@ -10,7 +12,9 @@ const FIRST_BREAKDOWN = [10, 20]; // seconds of riding
 const NEXT_BREAKDOWN = [14, 26];
 const NO_BREAKDOWN_NEAR_FINISH = 80; // metres
 
-export function createGame({ rng = Math.random, shouts = [], length = ROAD_LENGTH, breakdownsEnabled = true } = {}) {
+const BUMP_EVENT_SPEED = 2.5; // m/s into a wall before it counts as a bump
+
+export function createGame({ rng = Math.random, shouts = [], length = ROAD_LENGTH, breakdownsEnabled = true, obstacles = createObstacleField(generateWorld(length).obstacles) } = {}) {
   const between = ([a, b]) => a + rng() * (b - a);
   let events = [];
 
@@ -75,7 +79,7 @@ export function createGame({ rng = Math.random, shouts = [], length = ROAD_LENGT
 
       if (game.state === 'broken') {
         // dead moped: coast to a halt, no throttle
-        stepMoped(game.moped, { throttle: false, brake: true, steer: 0 }, dt, roadCenterX);
+        stepMoped(game.moped, { throttle: false, brake: true, steer: 0 }, dt, roadCenterX, obstacles);
         const res = game.breakdown.update(dt, inp);
         if (res.failedKick) {
           events.push({ type: 'kickFail' });
@@ -90,7 +94,8 @@ export function createGame({ rng = Math.random, shouts = [], length = ROAD_LENGT
         return;
       }
 
-      stepMoped(game.moped, inp, dt, roadCenterX);
+      const { impact } = stepMoped(game.moped, inp, dt, roadCenterX, obstacles);
+      if (impact > BUMP_EVENT_SPEED) events.push({ type: 'bump', impact });
 
       if (game.moped.z >= game.length) {
         game.state = 'finished';

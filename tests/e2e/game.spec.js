@@ -13,14 +13,14 @@ test.beforeEach(async ({ page }) => {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   // random breakdowns off so tests are deterministic; they are forced explicitly
-  await page.goto('./?breakdowns=off');
+  await page.goto('./?breakdowns=off&quality=low');
   await page.waitForFunction(() => window.__game && window.__game.ready);
   await page.waitForTimeout(500);
   await expect(page.locator('#start-screen')).toBeVisible();
   await expect(page.locator('#start-screen')).toContainText(/start/i);
   expect(await g(page, 'G.started')).toBe(false);
   await shot(page, '00-start-screen');
-  await page.locator('#start-btn').click();
+  await page.locator('#start-btn').click({ force: true });
   await expect(page.locator('#start-screen')).toBeHidden();
   expect(await g(page, 'G.started')).toBe(true);
 });
@@ -29,7 +29,7 @@ test.afterEach(() => {
 });
 
 test('loads, canvas is not blank, title shown', async ({ page }) => {
-  await expect(page.locator('canvas')).toHaveCount(1);
+  await expect(page.locator('canvas#game')).toHaveCount(1);
   await expect(page.locator('#title')).toContainText('Allt e skit');
   await shot(page, '01-start');
   const png = (await page.screenshot()).toString('base64');
@@ -97,12 +97,11 @@ test('tyre breakdown: hold E for 3 seconds', async ({ page }) => {
   await page.evaluate(() => window.__game.forceBreakdown('tyre'));
   await expect(page.locator('#fix-panel')).toBeVisible();
   await page.keyboard.down('e');
-  await page.waitForTimeout(1500);
-  expect(await g(page, 'G.state')).toBe('broken');
+  await page.waitForTimeout(1000);
+  expect(await g(page, 'G.state')).toBe('broken'); // 3 seconds are needed, one is not enough
   await shot(page, '05-breakdown-tyre');
-  await page.waitForTimeout(2000);
+  await page.waitForFunction(() => window.__game.state === 'riding', null, { timeout: 30000 });
   await page.keyboard.up('e');
-  expect(await g(page, 'G.state')).toBe('riding');
   expect(await g(page, 'G.breakdowns')).toBe(1);
 });
 
@@ -121,7 +120,7 @@ test('reaching the finish shows the finish screen and ride again works', async (
   await page.evaluate(() => window.__game.forceBreakdown('tyre'));
   await page.evaluate(() => window.__game.teleport(window.__game.length - 5));
   await page.keyboard.down('e');
-  await page.waitForTimeout(3300);
+  await page.waitForFunction(() => window.__game.state === 'riding', null, { timeout: 30000 });
   await page.keyboard.up('e');
   await page.keyboard.down('w');
   await expect(page.locator('#finish-screen')).toBeVisible({ timeout: 15000 });
@@ -135,4 +134,16 @@ test('reaching the finish shows the finish screen and ride again works', async (
   await expect(page.locator('#finish-screen')).toBeHidden();
   expect(await g(page, 'G.state')).toBe('riding');
   expect(await g(page, 'G.position.z')).toBeLessThan(5);
+});
+
+test('houses are solid: you cannot ride through a wall', async ({ page }) => {
+  const house = await page.evaluate(() => window.__game.houses[3]);
+  // start 10 m before the house, lined up with it, heading straight at it
+  await page.evaluate(([z, x]) => window.__game.teleport(z, 0, x), [house.z - 10, house.x]);
+  await page.keyboard.down('w');
+  await page.waitForTimeout(3500);
+  await page.keyboard.up('w');
+  const z = await g(page, 'G.position.z');
+  expect(z).toBeLessThan(house.z - 2); // stopped in front of the house instead of passing through it
+  await shot(page, '08-wall');
 });

@@ -1,24 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, BREAKDOWN_FRUSTRATION } from '../../src/logic/game.js';
+import { NO_OBSTACLES, createObstacleField, box } from '../../src/logic/collision.js';
 
 const seeded = (seed = 1) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 const input = (o = {}) => ({ throttle: false, brake: false, steer: 0, fixHeld: false, presses: [], ...o });
 const SHOUTS = ['AAA', 'BBB'];
+const newGame = (o = {}) => createGame({ shouts: SHOUTS, obstacles: NO_OBSTACLES, ...o });
 
 describe('game', () => {
   it('starts riding at zero', () => {
-    const g = createGame({ rng: seeded(), shouts: SHOUTS });
+    const g = newGame({ rng: seeded() });
     expect(g.state).toBe('riding');
     expect(g.breakdowns).toBe(0);
     expect(g.shoutCount).toBe(0);
   });
   it('moves with throttle', () => {
-    const g = createGame({ rng: seeded(), shouts: SHOUTS });
+    const g = newGame({ rng: seeded() });
     for (let i = 0; i < 60; i++) g.update(1 / 60, input({ throttle: true }));
     expect(g.moped.z).toBeGreaterThan(1);
   });
   it('breakdowns happen at random while riding, with a sputter warning first', () => {
-    const g = createGame({ rng: seeded(3), shouts: SHOUTS });
+    const g = newGame({ rng: seeded(3) });
     let sputtered = false;
     for (let i = 0; i < 60 * 40 && g.state === 'riding'; i++) {
       g.update(1 / 60, input({ throttle: true }));
@@ -30,7 +32,7 @@ describe('game', () => {
     expect(g.breakdown).not.toBeNull();
   });
   it('stops the moped when broken down', () => {
-    const g = createGame({ rng: seeded(), shouts: SHOUTS });
+    const g = newGame({ rng: seeded() });
     for (let i = 0; i < 120; i++) g.update(1 / 60, input({ throttle: true }));
     g.forceBreakdown('tyre');
     for (let i = 0; i < 300; i++) g.update(1 / 60, input({ throttle: true }));
@@ -38,33 +40,33 @@ describe('game', () => {
     expect(g.state).toBe('broken');
   });
   it('fixing a tyre resumes riding', () => {
-    const g = createGame({ rng: () => 0.99, shouts: SHOUTS });
+    const g = newGame({ rng: () => 0.99 });
     g.forceBreakdown('tyre');
     for (let i = 0; i < 60 * 3.2; i++) g.update(1 / 60, input({ fixHeld: true }));
     expect(g.state).toBe('riding');
     expect(g.breakdown).toBeNull();
   });
   it('fixes an engine with kicks', () => {
-    const g = createGame({ rng: () => 0.99, shouts: SHOUTS });
+    const g = newGame({ rng: () => 0.99 });
     g.forceBreakdown('engine');
     for (let i = 0; i < 20 && g.state === 'broken'; i++) g.update(0.1, input({ presses: ['kick'] }));
     expect(g.state).toBe('riding');
   });
   it('fixes a chain with the shown arrows', () => {
-    const g = createGame({ rng: () => 0.5, shouts: SHOUTS });
+    const g = newGame({ rng: () => 0.5 });
     g.forceBreakdown('chain');
     for (const k of [...g.breakdown.sequence]) g.update(0.1, input({ presses: [k] }));
     expect(g.state).toBe('riding');
   });
   it('each breakdown adds frustration; a failed kick adds some too', () => {
-    const g = createGame({ rng: () => 0, shouts: SHOUTS });
+    const g = newGame({ rng: () => 0 });
     g.forceBreakdown('engine');
     expect(g.frustration.level).toBe(BREAKDOWN_FRUSTRATION);
     g.update(0.05, input({ presses: ['kick'] })); // rng()=0 -> backfire
     expect(g.frustration.level).toBeGreaterThan(BREAKDOWN_FRUSTRATION);
   });
   it('shouts at full frustration then resets the meter', () => {
-    const g = createGame({ rng: seeded(), shouts: SHOUTS });
+    const g = newGame({ rng: seeded() });
     g.frustration.max();
     g.forceBreakdown('tyre');
     expect(g.shoutCount).toBe(1);
@@ -74,7 +76,7 @@ describe('game', () => {
     expect(ev.some((e) => e.type === 'shout' && SHOUTS.includes(e.text))).toBe(true);
   });
   it('finishes at the end of the road and keeps the stats', () => {
-    const g = createGame({ rng: seeded(), shouts: SHOUTS, length: 100 });
+    const g = newGame({ rng: seeded(), length: 100 });
     g.moped.z = 99.9;
     g.moped.speed = 10;
     g.update(0.1, input({ throttle: true }));
@@ -85,15 +87,25 @@ describe('game', () => {
     expect(g.drainEvents().some((e) => e.type === 'finish')).toBe(true);
   });
   it('restart resets everything', () => {
-    const g = createGame({ rng: seeded(), shouts: SHOUTS });
+    const g = newGame({ rng: seeded() });
     g.forceBreakdown('tyre');
     g.restart();
     expect(g.state).toBe('riding');
     expect(g.breakdowns).toBe(0);
     expect(g.moped.z).toBe(0);
   });
+  it('a solid wall stops the moped and reports a bump', () => {
+    const g = newGame({ rng: seeded(), breakdownsEnabled: false, obstacles: createObstacleField([box(0, 12, 6, 0.3, 0)]) });
+    for (let i = 0; i < 60 * 6; i++) g.update(1 / 60, input({ throttle: true }));
+    expect(g.moped.z).toBeLessThan(12);
+    expect(g.drainEvents().some((e) => e.type === 'bump' && e.impact > 2.5)).toBe(true);
+  });
+  it('the default world has solid things in it', () => {
+    const g = createGame({ shouts: SHOUTS });
+    expect(g.state).toBe('riding');
+  });
   it('time counts while the game runs', () => {
-    const g = createGame({ rng: seeded(), shouts: SHOUTS });
+    const g = newGame({ rng: seeded() });
     for (let i = 0; i < 60; i++) g.update(1 / 60, input());
     expect(g.time).toBeCloseTo(1, 1);
   });

@@ -6,69 +6,95 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23e8452c'/%3E%3C/svg%3E" />
   <title>Allt e skit</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd3ff; font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; color: #222; }
-    canvas { display: block; width: 100vw; height: 100vh; }
+    :root { --red: #e8452c; --dark: #c0392b; --yellow: #ffd93b; --ink: #1b2233; --glass: rgba(18, 26, 44, .55); }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd3ff; font-family: 'Segoe UI', 'Trebuchet MS', system-ui, sans-serif; color: var(--ink); }
+    canvas#game { display: block; width: 100vw; height: 100vh; }
     .hud { position: fixed; pointer-events: none; user-select: none; }
-    #title { top: 12px; left: 16px; font-size: 26px; font-weight: 800; color: #fff; text-shadow: 0 2px 0 #c0392b, 0 0 8px rgba(0,0,0,.4); letter-spacing: 1px; }
-    #stats { top: 14px; right: 16px; text-align: right; font-weight: 700; font-size: 18px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); line-height: 1.5; }
-    #progress { width: 220px; height: 8px; background: rgba(0,0,0,.35); border-radius: 4px; margin-top: 4px; margin-left: auto; overflow: hidden; }
-    #progress > div { height: 100%; width: 0; background: #ffd93b; }
-    #meter-wrap { bottom: 18px; left: 16px; width: 240px; }
-    #meter-label { font-weight: 800; font-size: 14px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); margin-bottom: 3px; }
-    #meter { height: 16px; background: rgba(0,0,0,.4); border-radius: 8px; overflow: hidden; border: 2px solid #fff; }
-    #meter > div { height: 100%; width: 0; background: linear-gradient(90deg, #7bd34b, #ffd93b, #e8452c); background-size: 240px 100%; }
-    #help { bottom: 18px; right: 16px; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); text-align: right; line-height: 1.5; }
-    #speed { bottom: 56px; left: 16px; font-size: 40px; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
-    #speed small { font-size: 16px; }
-    #fix-panel { left: 50%; top: 36%; transform: translateX(-50%); background: rgba(255,255,255,.93); border: 4px solid #e8452c; border-radius: 14px; padding: 12px 24px; text-align: center; min-width: 300px; box-shadow: 0 6px 0 rgba(0,0,0,.25); }
-    #fix-title { font-size: 24px; font-weight: 800; color: #c0392b; }
-    #fix-text { font-size: 18px; margin: 4px 0 8px; }
-    #fix-arrows { font-size: 40px; font-weight: 800; letter-spacing: 6px; }
-    .arrow { display: inline-block; width: 52px; height: 52px; line-height: 52px; margin: 0 4px; border-radius: 10px; background: #ddd; border: 3px solid #999; }
-    .arrow.done { background: #7bd34b; border-color: #3d8b1f; color: #fff; }
-    .arrow.next { border-color: #e8452c; background: #fff; }
-    #fix-bar { height: 14px; background: #ddd; border-radius: 7px; overflow: hidden; border: 2px solid #999; }
-    #fix-bar > div { height: 100%; width: 0; background: #7bd34b; }
-    #shout-bubble { left: 50%; top: 9%; transform: translateX(-50%) rotate(-2deg); max-width: 70vw; background: #fff; border: 6px solid #111; border-radius: 40px; padding: 18px 34px; font-size: 44px; font-weight: 900; text-align: center; text-transform: uppercase; color: #c0392b; box-shadow: 0 8px 0 rgba(0,0,0,.3); }
-    #shout-bubble::after { content: ''; position: absolute; left: 50%; bottom: -34px; margin-left: -20px; border: 20px solid transparent; border-top: 30px solid #111; }
-    #joke { bottom: 90px; left: 50%; transform: translateX(-50%); font-size: 18px; font-weight: 700; color: #fff; background: rgba(0,0,0,.45); padding: 4px 14px; border-radius: 12px; }
-    #finish-screen { inset: 0; background: rgba(20,30,60,.72); display: flex; align-items: center; justify-content: center; pointer-events: auto; }
-    #finish-card { background: #fff; border: 6px solid #ffd93b; border-radius: 20px; padding: 28px 44px; text-align: center; box-shadow: 0 10px 0 rgba(0,0,0,.3); }
-    #finish-card h1 { margin: 0 0 12px; font-size: 40px; color: #c0392b; }
-    #finish-card p { font-size: 22px; margin: 6px 0; }
-    #ride-again { margin-top: 16px; font-size: 24px; font-weight: 800; padding: 10px 30px; border: 0; border-radius: 12px; background: #e8452c; color: #fff; cursor: pointer; box-shadow: 0 5px 0 #922; }
-    #ride-again:hover { background: #f25a42; }
-    #start-screen { inset: 0; background: rgba(20,30,60,.55); display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: pointer; }
-    #start-card { background: #fff; border: 6px solid #e8452c; border-radius: 20px; padding: 26px 44px; text-align: center; box-shadow: 0 10px 0 rgba(0,0,0,.3); max-width: 520px; }
-    #start-card h1 { margin: 0 0 6px; font-size: 48px; color: #c0392b; }
-    #start-card p { margin: 6px 0; font-size: 18px; }
-    #start-btn { margin-top: 14px; font-size: 26px; font-weight: 800; padding: 12px 36px; border: 0; border-radius: 12px; background: #e8452c; color: #fff; cursor: pointer; box-shadow: 0 5px 0 #922; }
-    #start-hint { font-size: 15px; color: #555; }
+    .glass { background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.22); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.25); color: #fff; }
+    #title { top: 14px; left: 18px; font-size: 30px; font-weight: 900; font-style: italic; color: #fff; letter-spacing: .5px; text-shadow: 0 3px 0 var(--dark), 0 0 14px rgba(0,0,0,.35); transform: rotate(-2deg); }
+    #stats { top: 14px; right: 16px; padding: 10px 16px 12px; width: 230px; }
+    #stats .row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; }
+    #stats .label { font-size: 12px; letter-spacing: 2px; opacity: .7; }
+    #time { font-size: 26px; font-variant-numeric: tabular-nums; }
+    #track { position: relative; height: 8px; margin: 14px 4px 4px; background: rgba(255,255,255,.2); border-radius: 4px; }
+    #track-fill { height: 100%; width: 0; background: linear-gradient(90deg, #ffd93b, #ff8a3b); border-radius: 4px; }
+    #rider-dot { position: absolute; top: -14px; left: 0; font-size: 18px; transform: translateX(-50%) scaleX(-1); filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+    #track .flag { position: absolute; right: -6px; top: -17px; font-size: 16px; }
+    #dash { left: 16px; bottom: 16px; display: flex; align-items: flex-end; gap: 12px; }
+    #gauge { width: 170px; height: 170px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.4)); }
+    #meter-wrap { padding: 10px 14px 12px; width: 220px; margin-bottom: 8px; }
+    #meter-wrap.rage { animation: jitter .12s infinite; }
+    #meter-label { font-weight: 800; font-size: 12px; letter-spacing: 2px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+    #face { font-size: 24px; letter-spacing: 0; }
+    #meter { height: 14px; background: rgba(0,0,0,.4); border-radius: 8px; overflow: hidden; }
+    #meter > div { height: 100%; width: 0; border-radius: 8px; background: linear-gradient(90deg, #7bd34b, #ffd93b 55%, #e8452c); background-size: 220px 100%; box-shadow: 0 0 12px rgba(255,120,60,.6); transition: width .25s ease-out; }
+    #help { bottom: 16px; right: 16px; font-size: 13px; padding: 8px 14px; text-align: right; line-height: 1.7; }
+    #help b { background: rgba(255,255,255,.2); border-radius: 5px; padding: 1px 6px; font-weight: 700; }
+    #joke { bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: 800; padding: 8px 22px; animation: toast .4s ease-out; }
+    #fix-panel { left: 50%; top: 36%; transform: translateX(-50%); text-align: center; min-width: 340px; padding: 16px 28px 18px; animation: pop .25s ease-out; }
+    #fix-title { font-size: 28px; font-weight: 900; color: #ffb4a2; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
+    #fix-text { font-size: 17px; margin: 6px 0 12px; opacity: .9; }
+    #fix-keys { margin-bottom: 12px; min-height: 52px; }
+    .key { display: inline-block; min-width: 46px; height: 46px; line-height: 44px; margin: 0 5px; padding: 0 12px; box-sizing: border-box; font-weight: 900; font-size: 22px; color: #1b2233; background: linear-gradient(#fff, #d9dde6); border-radius: 10px; border-bottom: 5px solid #8d94a6; box-shadow: 0 3px 8px rgba(0,0,0,.35); }
+    .key.big { min-width: 190px; font-size: 24px; letter-spacing: 4px; animation: tap .35s infinite alternate; }
+    .key.arrow { transition: transform .1s; }
+    .key.arrow.done { background: linear-gradient(#a8f08a, #5cc43a); border-bottom-color: #2f8a1a; color: #fff; }
+    .key.arrow.next { box-shadow: 0 0 0 3px var(--yellow), 0 0 18px var(--yellow); transform: translateY(-3px); }
+    #fix-bar { height: 14px; background: rgba(0,0,0,.4); border-radius: 8px; overflow: hidden; }
+    #fix-bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #7bd34b, #c8ff7b); border-radius: 8px; }
+    #shout-bubble { left: 50%; top: 8%; transform: translateX(-50%) rotate(-2deg); max-width: 70vw; background: #fff; border: 7px solid #111; border-radius: 46px; padding: 18px 38px; font-size: 52px; line-height: 1.05; font-weight: 900; font-style: italic; text-align: center; text-transform: uppercase; color: var(--dark); box-shadow: 10px 10px 0 rgba(0,0,0,.35); animation: shout .5s cubic-bezier(.2,1.6,.4,1); z-index: 5; }
+    #shout-bubble::after { content: ''; position: absolute; left: 50%; bottom: -40px; margin-left: -22px; border: 22px solid transparent; border-top: 34px solid #111; }
+    #finish-screen { inset: 0; background: radial-gradient(circle at 50% 40%, rgba(30,40,80,.55), rgba(10,14,30,.85)); display: flex; align-items: center; justify-content: center; pointer-events: auto; z-index: 10; }
+    #confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    #finish-card { position: relative; background: linear-gradient(#fff, #fff4dc); border: 6px solid var(--yellow); border-radius: 22px; padding: 28px 50px 30px; text-align: center; box-shadow: 0 12px 0 rgba(0,0,0,.3); animation: popc .4s cubic-bezier(.2,1.5,.4,1); }
+    #finish-card h1 { margin: 0 0 14px; font-size: 46px; font-style: italic; color: var(--dark); text-shadow: 0 3px 0 rgba(0,0,0,.12); }
+    #finish-card p { font-size: 24px; margin: 8px 0; }
+    #ride-again { margin-top: 18px; font-size: 26px; font-weight: 900; padding: 12px 34px; border: 0; border-radius: 14px; background: var(--red); color: #fff; cursor: pointer; box-shadow: 0 6px 0 #922; transition: transform .1s, box-shadow .1s; }
+    #ride-again:hover { background: #f25a42; transform: translateY(-2px); box-shadow: 0 8px 0 #922; }
+    #ride-again:active { transform: translateY(4px); box-shadow: 0 2px 0 #922; }
+    #start-screen { inset: 0; background: radial-gradient(circle at 30% 50%, rgba(10,20,50,.05), rgba(10,14,30,.55)); display: flex; align-items: center; justify-content: flex-end; padding-right: 8vw; box-sizing: border-box; pointer-events: auto; cursor: pointer; z-index: 10; }
+    #start-card { background: rgba(255,255,255,.94); border: 6px solid var(--red); border-radius: 22px; padding: 26px 40px; text-align: center; box-shadow: 0 12px 0 rgba(0,0,0,.3); max-width: 460px; }
+    #start-card h1 { margin: 0 0 6px; font-size: 58px; font-style: italic; color: var(--dark); text-shadow: 0 4px 0 rgba(0,0,0,.12); line-height: 1; }
+    #start-card p { margin: 8px 0; font-size: 18px; }
+    #start-btn { margin-top: 12px; font-size: 28px; font-weight: 900; padding: 14px 40px; border: 0; border-radius: 14px; background: var(--red); color: #fff; cursor: pointer; box-shadow: 0 6px 0 #922; animation: breathe 1.4s infinite ease-in-out; }
+    #start-btn:hover { background: #f25a42; }
+    #start-card #start-hint { font-size: 14px; color: #667; }
     [hidden] { display: none !important; }
+    @keyframes pop { from { transform: translateX(-50%) scale(.7); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+    @keyframes popc { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes shout { 0% { transform: translateX(-50%) rotate(-2deg) scale(.2); } 60% { transform: translateX(-50%) rotate(-5deg) scale(1.15); } 100% { transform: translateX(-50%) rotate(-2deg) scale(1); } }
+    @keyframes toast { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+    @keyframes tap { from { transform: translateY(0); } to { transform: translateY(4px); border-bottom-width: 2px; } }
+    @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes jitter { 0% { transform: translate(1px, 0); } 25% { transform: translate(-1px, 1px); } 50% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, 0); } }
+    @media (max-width: 900px) { #help { display: none; } #start-screen { justify-content: center; padding: 0; } }
   </style>
 </head>
 <body>
   <canvas id="game"></canvas>
   <div id="title" class="hud">Allt e skit</div>
-  <div id="stats" class="hud">
-    <div>Time <span id="time">0:00</span></div>
-    <div id="progress"><div></div></div>
+  <div id="stats" class="hud glass">
+    <div class="row"><span class="label">TIME</span><span id="time">0:00</span></div>
+    <div id="track"><div id="track-fill"></div><div id="rider-dot">&#x1F6F5;</div><span class="flag">&#x1F3C1;</span></div>
   </div>
-  <div id="speed" class="hud"><span id="speed-val">0</span> <small>km/h</small></div>
-  <div id="meter-wrap" class="hud">
-    <div id="meter-label">FRUSTRATION</div>
-    <div id="meter"><div></div></div>
+  <div id="dash" class="hud">
+    <canvas id="gauge" width="340" height="340"></canvas>
+    <div id="meter-wrap" class="glass">
+      <div id="meter-label"><span id="face">&#x1F642;</span>FRUSTRATION</div>
+      <div id="meter"><div></div></div>
+    </div>
   </div>
-  <div id="help" class="hud">W/&uarr; throttle &middot; S/&darr; brake &middot; A D/&larr; &rarr; steer<br>Space kick-start &middot; E fix</div>
-  <div id="joke" class="hud" hidden></div>
-  <div id="fix-panel" class="hud" hidden>
+  <div id="help" class="hud glass"><b>W</b> go &middot; <b>S</b> brake &middot; <b>A</b> <b>D</b> steer<br><b>Space</b> kick-start &middot; <b>E</b> fix</div>
+  <div id="joke" class="hud glass" hidden></div>
+  <div id="fix-panel" class="hud glass" hidden>
     <div id="fix-title"></div>
     <div id="fix-text"></div>
-    <div id="fix-arrows"></div>
+    <div id="fix-keys"></div>
     <div id="fix-bar"><div></div></div>
   </div>
   <div id="shout-bubble" class="hud" hidden></div>
   <div id="finish-screen" class="hud" hidden>
+    <canvas id="confetti"></canvas>
     <div id="finish-card">
       <h1>You made it!</h1>
       <p>Time: <b id="f-time"></b></p>

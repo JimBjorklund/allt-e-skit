@@ -45,11 +45,12 @@ describe('driving', () => {
     run(m, { throttle: true, brake: false, steer: 1 }, 0.5);
     expect(m.heading).toBeGreaterThan(h);
   });
-  it('is slower off the road than on it', () => {
+  it('is a bit slower off the road than on it, but still quick', () => {
     const m = createMoped();
     m.x = roadCenterX(m.z) + ROAD_HALF_WIDTH + 5;
     run(m, { ...none, throttle: true }, 8, 1 / 60, roadCenterX);
-    expect(m.speed).toBeLessThan(MAX_SPEED * 0.6);
+    expect(m.speed).toBeLessThan(MAX_SPEED * 0.85);
+    expect(m.speed).toBeGreaterThan(MAX_SPEED * 0.6);
   });
   it('road centre is deterministic and starts at x=0', () => {
     expect(roadCenterX(0)).toBeCloseTo(0, 5);

@@ -1,0 +1,44 @@
+import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+
+// Full-quality visual tour: saves screenshots from several places so the look can be reviewed.
+const SCREENS = 'test-results/screens';
+fs.mkdirSync(SCREENS, { recursive: true });
+
+test('visual tour at high quality', async ({ page }) => {
+  test.setTimeout(180000);
+  const errors = [];
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto('./?breakdowns=off&quality=high');
+  await page.waitForFunction(() => window.__game && window.__game.ready);
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { document.getElementById('start-screen').style.display = 'none'; });
+  await page.screenshot({ path: `${SCREENS}/v0-moped-orbit.png` });
+  await page.evaluate(() => { document.getElementById('start-screen').style.display = ''; });
+  await page.locator('#start-btn').click({ force: true });
+  await page.waitForTimeout(1500);
+
+  const tour = [['v1-village', 70, 0], ['v2-barn', 150, 0.55], ['v3-windmill', 395, 0.75], ['v4-church', 650, -0.6], ['v5-hills', 900, 0]];
+  for (const [name, z, heading] of tour) {
+    await page.evaluate(([zz, h]) => window.__game.teleport(zz, h), [z, heading]);
+    await page.keyboard.down('w');
+    await page.waitForTimeout(1600);
+    await page.screenshot({ path: `${SCREENS}/${name}.png` });
+    await page.keyboard.up('w');
+  }
+  await page.evaluate(() => window.__game.teleport(300));
+  await page.evaluate(() => window.__game.forceBreakdown('engine'));
+  await page.waitForTimeout(1800);
+  await page.screenshot({ path: `${SCREENS}/v6-smoking.png` });
+  for (let i = 0; i < 300 && (await page.evaluate(() => window.__game.state)) === 'broken'; i++) {
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(80);
+  }
+  await page.evaluate(() => { window.__game.maxFrustration(); window.__game.forceBreakdown('tyre'); });
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${SCREENS}/v7-shout-face.png` });
+  const info = await page.evaluate(() => ({ fps: window.__game.fps, calls: window.__game.drawCalls, tris: window.__game.triangles, q: window.__game.quality }));
+  console.log('render info', JSON.stringify(info));
+  expect(errors).toEqual([]);
+});
