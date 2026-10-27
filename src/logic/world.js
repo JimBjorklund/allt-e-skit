@@ -81,6 +81,9 @@ export function generateWorld(length, { signCount = 8 } = {}) {
     lm('church', 700, -1, 27, Math.PI + 0.35),
     lm('shelter', 55, 1, ROAD_HALF_WIDTH + 3.6, Math.PI),
     lm('windmill', 450, 1, 48, Math.PI + 0.45),
+    lm('duck', 330, -1, 24, Math.PI + 0.3), // the world's largest rubber duck
+    lm('moose', 580, 1, 17, Math.PI - 0.5), // a very proud moose statue
+    lm('ufo', 840, -1, 46, 0.6), // crashed, still smoking
   ];
   // joke signs (two posts each) and the start/finish gates
   const signs = [];

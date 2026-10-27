@@ -4,6 +4,7 @@ export function createAudio() {
   let osc, osc2, gain, filter;
   let noiseBuf;
   let windGain;
+  let rainGain;
   let nextBird = 0;
 
   function init() {
@@ -42,6 +43,31 @@ export function createAudio() {
     windGain.gain.value = 0.01;
     wsrc.connect(wf).connect(windGain).connect(ctx.destination);
     wsrc.start();
+    // looping rain: bright hiss
+    const rb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const rd = rb.getChannelData(0);
+    for (let i = 0; i < rd.length; i++) rd[i] = Math.random() * 2 - 1;
+    const rsrc = ctx.createBufferSource();
+    rsrc.buffer = rb; rsrc.loop = true;
+    const rf = ctx.createBiquadFilter();
+    rf.type = 'highpass'; rf.frequency.value = 1800;
+    rainGain = ctx.createGain();
+    rainGain.gain.value = 0;
+    rsrc.connect(rf).connect(rainGain).connect(ctx.destination);
+    rsrc.start();
+  }
+
+  function tone(freq, t0, dur, vol, type = 'sine') {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.02);
   }
 
   function chirp(t0, f0, f1, dur, vol) {
@@ -112,6 +138,30 @@ export function createAudio() {
       if (e.type === 'breakdown') burst(0.3, 300, 0.4);
       else if (e.type === 'kickFail') burst(0.25, 900, 0.15);
       else if (e.type === 'fixed') burst(0.15, 1500, 0.2);
+      else if (e.type === 'pickup') {
+        const t = ctx.currentTime;
+        tone(660, t, 0.18, 0.12); tone(880, t + 0.08, 0.18, 0.12); tone(1320, t + 0.16, 0.3, 0.1);
+      } else if (e.type === 'land') { if (e.impact > 4) burst(Math.min(0.5, 0.08 + e.impact * 0.03), 160, 0.25); }
+      else if (e.type === 'crash') { burst(0.5, 220, 0.6); burst(0.3, 1400, 0.3); }
+      else if (e.type === 'lightning') {
+        // thunder arrives a moment after the flash
+        const t = ctx.currentTime + 0.35 + Math.random() * 1.2;
+        const src = ctx.createBufferSource();
+        src.buffer = noiseBuf; src.loop = true;
+        const f = ctx.createBiquadFilter();
+        f.type = 'lowpass'; f.frequency.value = 240;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(e.scary ? 0.9 : 0.5, t + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
+        src.connect(f).connect(g).connect(ctx.destination);
+        src.start(t); src.stop(t + 2.5);
+      }
+    },
+    // called every frame: the rain gets louder with the storm
+    weather(k) {
+      if (!ctx || !rainGain) return;
+      rainGain.gain.setTargetAtTime(0.05 * k, ctx.currentTime, 0.3);
     },
     kick() {
       burst(0.12, 500, 0.08);

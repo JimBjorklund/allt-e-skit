@@ -20,6 +20,12 @@
     #track-fill { height: 100%; width: 0; background: linear-gradient(90deg, #ffd93b, #ff8a3b); border-radius: 4px; }
     #rider-dot { position: absolute; top: -14px; left: 0; font-size: 18px; transform: translateX(-50%) scaleX(-1); filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
     #track .flag { position: absolute; right: -6px; top: -17px; font-size: 16px; }
+    #toast { top: 86px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: 800; padding: 9px 24px; animation: toast .35s ease-out; z-index: 4; white-space: nowrap; }
+    #powerups { left: 200px; bottom: 150px; display: flex; flex-direction: column; gap: 6px; }
+    #powerups .glass { padding: 6px 12px; font-weight: 800; font-size: 14px; }
+    #boost-bar { width: 120px; height: 10px; background: rgba(0,0,0,.4); border-radius: 6px; overflow: hidden; margin-top: 4px; }
+    #boost-bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #2f8dff, #8fd0ff); box-shadow: 0 0 10px #2f8dff; }
+    #weather { font-size: 20px; margin-right: auto; padding-left: 4px; }
     #dash { left: 16px; bottom: 16px; display: flex; align-items: flex-end; gap: 12px; }
     #gauge { width: 170px; height: 170px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.4)); }
     #meter-wrap { padding: 10px 14px 12px; width: 220px; margin-bottom: 8px; }
@@ -38,8 +44,8 @@
     .key { display: inline-block; min-width: 46px; height: 46px; line-height: 44px; margin: 0 5px; padding: 0 12px; box-sizing: border-box; font-weight: 900; font-size: 22px; color: #1b2233; background: linear-gradient(#fff, #d9dde6); border-radius: 10px; border-bottom: 5px solid #8d94a6; box-shadow: 0 3px 8px rgba(0,0,0,.35); }
     .key.big { min-width: 190px; font-size: 24px; letter-spacing: 4px; animation: tap .35s infinite alternate; }
     .key.arrow { transition: transform .1s; }
-    .key.arrow.done { background: linear-gradient(#a8f08a, #5cc43a); border-bottom-color: #2f8a1a; color: #fff; }
-    .key.arrow.next { box-shadow: 0 0 0 3px var(--yellow), 0 0 18px var(--yellow); transform: translateY(-3px); }
+    .key.done { background: linear-gradient(#a8f08a, #5cc43a); border-bottom-color: #2f8a1a; color: #fff; }
+    .key.next { box-shadow: 0 0 0 3px var(--yellow), 0 0 18px var(--yellow); transform: translateY(-3px); }
     #fix-bar { height: 14px; background: rgba(0,0,0,.4); border-radius: 8px; overflow: hidden; }
     #fix-bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #7bd34b, #c8ff7b); border-radius: 8px; }
     #shout-bubble { left: 50%; top: 8%; transform: translateX(-50%) rotate(-2deg); max-width: 70vw; background: #fff; border: 7px solid #111; border-radius: 46px; padding: 18px 38px; font-size: 52px; line-height: 1.05; font-weight: 900; font-style: italic; text-align: center; text-transform: uppercase; color: var(--dark); box-shadow: 10px 10px 0 rgba(0,0,0,.35); animation: shout .5s cubic-bezier(.2,1.6,.4,1); z-index: 5; }
@@ -74,7 +80,7 @@
   <canvas id="game"></canvas>
   <div id="title" class="hud">Allt e skit</div>
   <div id="stats" class="hud glass">
-    <div class="row"><span class="label">TIME</span><span id="time">0:00</span></div>
+    <div class="row"><span id="weather"></span><span class="label">TIME</span><span id="time">0:00</span></div>
     <div id="track"><div id="track-fill"></div><div id="rider-dot">&#x1F6F5;</div><span class="flag">&#x1F3C1;</span></div>
   </div>
   <div id="dash" class="hud">
@@ -86,6 +92,11 @@
   </div>
   <div id="help" class="hud glass"><b>W</b> go &middot; <b>S</b> brake / reverse &middot; <b>A</b> <b>D</b> steer<br><b>Space</b> kick-start &middot; <b>E</b> fix</div>
   <div id="joke" class="hud glass" hidden></div>
+  <div id="toast" class="hud glass" hidden></div>
+  <div id="powerups" class="hud">
+    <div id="boost" class="glass" hidden>&#x1F680; NITRO<div id="boost-bar"><div></div></div></div>
+    <div id="tape" class="glass" hidden>&#x1FA79; duct tape ready</div>
+  </div>
   <div id="fix-panel" class="hud glass" hidden>
     <div id="fix-title"></div>
     <div id="fix-text"></div>
@@ -100,6 +111,7 @@
       <p>Time: <b id="f-time"></b></p>
       <p>Breakdowns: <b id="f-breakdowns"></b></p>
       <p>Shouts: <b id="f-shouts"></b></p>
+      <p>Jumps: <b id="f-jumps"></b> <small id="f-air"></small></p>
       <button id="ride-again">Ride again</button>
     </div>
   </div>

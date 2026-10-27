@@ -1,4 +1,5 @@
 const ARROW_PRESS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+const LETTER_PRESS = { KeyA: 'left', KeyD: 'right' }; // A/D also count as left/right presses (pushing the moped, the chain)
 const GAME_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'Space', ...Object.keys(ARROW_PRESS)]);
 
 export function createInput(target = window) {
@@ -12,6 +13,7 @@ export function createInput(target = window) {
     held.add(e.code);
     if (e.code === 'Space') presses.push('kick');
     if (ARROW_PRESS[e.code]) presses.push(ARROW_PRESS[e.code]);
+    if (LETTER_PRESS[e.code]) presses.push(LETTER_PRESS[e.code]);
   });
   target.addEventListener('keyup', (e) => held.delete(e.code));
   target.addEventListener('blur', () => held.clear());

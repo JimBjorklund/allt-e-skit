@@ -13,6 +13,9 @@ export function createFrustration() {
       }
       return false;
     },
+    reduce(n) {
+      f.level = Math.max(0, f.level - n);
+    },
     max() {
       f.level = MAX_FRUSTRATION;
     },

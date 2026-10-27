@@ -1,13 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { createBreakdown, BREAKDOWN_TYPES, KICKS_NEEDED, TYRE_HOLD_SECONDS, CHAIN_LENGTH } from '../../src/logic/breakdown.js';
+import { createBreakdown, BREAKDOWN_TYPES, KICKS_NEEDED, TYRE_HOLD_SECONDS, CHAIN_LENGTH, FUEL_PUSHES, SPARK_HOLD_SECONDS, SPARK_KICKS } from '../../src/logic/breakdown.js';
 
 const never = () => 0.99; // never backfires
 const idle = { presses: [], fixHeld: false };
 const ARROWS = ['up', 'down', 'left', 'right'];
 
 describe('breakdown types', () => {
-  it('has engine, chain and tyre', () => {
-    expect([...BREAKDOWN_TYPES].sort()).toEqual(['chain', 'engine', 'tyre']);
+  it('has engine, chain, tyre, fuel and spark', () => {
+    expect([...BREAKDOWN_TYPES].sort()).toEqual(['chain', 'engine', 'fuel', 'spark', 'tyre']);
+  });
+  it('a duct-tape head start gives every type a running start', () => {
+    for (const type of BREAKDOWN_TYPES) {
+      const b = createBreakdown(type, never);
+      b.update(0, idle);
+      expect(b.progress).toBe(0);
+      b.headStart(0.6);
+      b.update(0, idle);
+      expect(b.progress, type).toBeGreaterThanOrEqual(0.5);
+      expect(b.progress, type).toBeLessThan(1);
+    }
   });
 });
 
@@ -84,4 +95,57 @@ describe('tyre: hold E', () => {
     expect(res.fixed).toBe(false);
   });
   it('is 3 seconds', () => expect(TYRE_HOLD_SECONDS).toBe(3));
+});
+
+describe('fuel: push the moped, alternating left and right', () => {
+  const press = (b, k) => b.update(0.1, { presses: [k], fixHeld: false });
+  it('is fixed by alternating left/right enough times', () => {
+    const b = createBreakdown('fuel', never);
+    let res;
+    for (let i = 0; i < FUEL_PUSHES; i++) res = press(b, i % 2 ? 'right' : 'left');
+    expect(res.fixed).toBe(true);
+  });
+  it('pressing the same key twice only counts once', () => {
+    const b = createBreakdown('fuel', never);
+    press(b, 'left');
+    const res = press(b, 'left');
+    expect(res.pushed).toBe(0);
+    expect(b.progress).toBeCloseTo(1 / FUEL_PUSHES, 5);
+    expect(b.next).toBe('right');
+  });
+  it('each good push moves the moped (reports how many)', () => {
+    const b = createBreakdown('fuel', never);
+    expect(press(b, 'left').pushed).toBe(1);
+    expect(press(b, 'right').pushed).toBe(1);
+  });
+  it('ignores kicks and E', () => {
+    const b = createBreakdown('fuel', never);
+    b.update(0.1, { presses: ['kick'], fixHeld: true });
+    expect(b.progress).toBe(0);
+  });
+});
+
+describe('spark plug: hold E, then hammer Space', () => {
+  it('needs the hold first; kicks before that are ignored', () => {
+    const b = createBreakdown('spark', never);
+    for (let i = 0; i < SPARK_KICKS + 2; i++) b.update(0.05, { presses: ['kick'], fixHeld: false });
+    expect(b.phase).toBe('hold');
+    expect(b.progress).toBe(0);
+  });
+  it('holding E long enough moves on to the kicking phase; releasing early resets the hold', () => {
+    const b = createBreakdown('spark', never);
+    b.update(SPARK_HOLD_SECONDS / 2, { presses: [], fixHeld: true });
+    b.update(0.1, idle);
+    expect(b.progress).toBe(0);
+    b.update(SPARK_HOLD_SECONDS + 0.1, { presses: [], fixHeld: true });
+    expect(b.phase).toBe('kick');
+    expect(b.progress).toBeGreaterThanOrEqual(0.5);
+  });
+  it('is fixed after the hold and enough kicks', () => {
+    const b = createBreakdown('spark', never);
+    b.update(SPARK_HOLD_SECONDS + 0.1, { presses: [], fixHeld: true });
+    let res;
+    for (let i = 0; i < SPARK_KICKS; i++) res = b.update(0.1, { presses: ['kick'], fixHeld: false });
+    expect(res.fixed).toBe(true);
+  });
 });

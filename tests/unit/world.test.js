@@ -16,7 +16,7 @@ describe('generated world', () => {
     expect(w.poles.length).toBeGreaterThan(10);
     expect(w.cows.length).toBeGreaterThan(3);
     expect(w.sheep.length).toBeGreaterThan(3);
-    expect(w.landmarks.map((l) => l.kind).sort()).toEqual(['barn', 'church', 'shelter', 'windmill']);
+    expect(w.landmarks.map((l) => l.kind).sort()).toEqual(['barn', 'church', 'duck', 'moose', 'shelter', 'ufo', 'windmill']);
     expect(w.signs).toHaveLength(8);
   });
 });

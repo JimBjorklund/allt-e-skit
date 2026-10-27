@@ -224,3 +224,107 @@ test('stress: riding around at random never breaks anything', async ({ page }) =
   expect(bad).toEqual([]);
   await shot(page, '12-after-stress');
 });
+
+test('out of petrol: push the moped by alternating A and D', async ({ page }) => {
+  await page.evaluate(() => window.__game.teleport(100));
+  const z0 = await g(page, 'G.position.z');
+  await page.evaluate(() => window.__game.forceBreakdown('fuel'));
+  await expect(page.locator('#fix-panel')).toBeVisible();
+  await expect(page.locator('#fix-panel')).toContainText(/petrol/i);
+  await shot(page, '13-out-of-petrol');
+  for (let i = 0; i < 60 && (await g(page, 'G.state')) === 'broken'; i++) {
+    await page.keyboard.press(i % 2 ? 'd' : 'a');
+    await page.waitForTimeout(120);
+  }
+  expect(await g(page, 'G.state')).toBe('riding');
+  expect(await g(page, 'G.position.z')).toBeGreaterThan(z0 + 3); // the pushing really moved it
+});
+
+test('spark plug: hold E to unscrew it, then hammer Space', async ({ page }) => {
+  await page.evaluate(() => window.__game.forceBreakdown('spark'));
+  await expect(page.locator('#fix-panel')).toContainText(/spark/i);
+  await page.keyboard.down('e');
+  await page.waitForFunction(() => window.__game.fixProgress >= 0.5, null, { timeout: 40000 });
+  await page.keyboard.up('e');
+  expect(await g(page, 'G.state')).toBe('broken'); // not done yet: the kicking comes next
+  await shot(page, '14-spark-plug');
+  for (let i = 0; i < 60 && (await g(page, 'G.state')) === 'broken'; i++) {
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(120);
+  }
+  expect(await g(page, 'G.state')).toBe('riding');
+});
+
+const pickupOfKind = (page, kind) => page.evaluate((k) => window.__game.pickups.find((p) => p.kind === k), kind);
+const rideOnto = async (page, p) => {
+  await page.evaluate((q) => window.__game.teleport(q.z, 0, q.x), p);
+  await page.waitForFunction((id) => window.__game.collected.includes(id), p.id, { timeout: 30000 });
+};
+
+test('pickups: coffee calms you down', async ({ page }) => {
+  const p = await pickupOfKind(page, 'coffee');
+  await page.evaluate(() => window.__game.addFrustration(60));
+  await rideOnto(page, p);
+  expect(await g(page, 'G.frustration')).toBeCloseTo(30, 0);
+  await expect(page.locator('#toast')).toContainText(/coffee/i);
+  await shot(page, '15-coffee');
+});
+
+test('pickups: nitro boosts you, duct tape and petrol are collected too', async ({ page }) => {
+  const nitro = await pickupOfKind(page, 'nitro');
+  await rideOnto(page, nitro);
+  expect(await g(page, 'G.boostLeft')).toBeGreaterThan(1);
+  await shot(page, '16-nitro');
+  const tape = await pickupOfKind(page, 'tape');
+  await rideOnto(page, tape);
+  expect(await g(page, 'G.tape')).toBe(true);
+  await page.evaluate(() => window.__game.forceBreakdown('tyre'));
+  await page.waitForFunction(() => window.__game.fixProgress >= 0.5, null, { timeout: 20000 }); // head start from the tape
+  const petrol = await pickupOfKind(page, 'petrol');
+  expect(petrol).toBeTruthy();
+});
+
+test('jump ramps: ride up one, fly, land', async ({ page }) => {
+  const r = await page.evaluate(() => window.__game.ramps[0]);
+  const back = r.len / 2 + 14;
+  await page.evaluate((q) => window.__game.teleport(q.z - Math.cos(q.heading) * (q.len / 2 + 14), q.heading, q.x - Math.sin(q.heading) * (q.len / 2 + 14)), r);
+  expect(back).toBeGreaterThan(10);
+  await page.keyboard.down('w');
+  // watch the whole flight from inside the page, so a slow screenshot cannot miss it
+  await page.waitForFunction(() => {
+    const G = window.__game;
+    window.__peak = Math.max(window.__peak || 0, G.mopedY);
+    window.__sawAir = window.__sawAir || G.air;
+    return window.__sawAir && !G.air && G.stats.jumps >= 1;
+  }, null, { timeout: 90000 });
+  await page.keyboard.up('w');
+  expect(await page.evaluate(() => window.__peak)).toBeGreaterThan(2); // it really left the ground, up over the ramp
+  await shot(page, '17-after-the-jump');
+  expect(await g(page, 'G.state')).toBe('riding'); // an ordinary jump is safe
+});
+
+test('a hard landing breaks the moped, a small drop does not', async ({ page }) => {
+  await page.evaluate(() => window.__game.teleport(150));
+  await page.evaluate(() => window.__game.drop(1));
+  await page.waitForFunction(() => window.__game.air === false, null, { timeout: 20000 });
+  expect(await g(page, 'G.state')).toBe('riding');
+  await page.evaluate(() => window.__game.drop(9));
+  await page.waitForFunction(() => window.__game.state === 'broken', null, { timeout: 30000 });
+  expect(await g(page, 'G.breakdowns')).toBe(1);
+  await shot(page, '18-crash');
+});
+
+test('weather: it rains, it storms, it stops', async ({ page }) => {
+  await page.evaluate(() => window.__game.forceRain(true));
+  await page.waitForFunction(() => window.__game.rainIntensity > 0.9, null, { timeout: 60000 });
+  expect(await g(page, 'G.raining')).toBe(true);
+  await expect(page.locator('#weather')).toContainText('🌧');
+  const l0 = await g(page, 'G.lightnings');
+  await page.evaluate(() => window.__game.strike(true));
+  await page.waitForFunction((n) => window.__game.lightnings > n, l0, { timeout: 20000 });
+  expect(await g(page, 'G.frustration')).toBeGreaterThan(0); // a close strike scares the rider
+  await shot(page, '19-storm');
+  await page.evaluate(() => window.__game.forceRain(false));
+  await page.waitForFunction(() => window.__game.rainIntensity < 0.05, null, { timeout: 60000 });
+  expect(await g(page, 'G.raining')).toBe(false);
+});

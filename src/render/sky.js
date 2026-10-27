@@ -4,6 +4,9 @@ export const SUN_DIR = new THREE.Vector3(-0.62, 0.5, 0.6).normalize();
 export const HORIZON = new THREE.Color(0xcfe6f7);
 const ZENITH = new THREE.Color(0x2b78d8);
 const MID = new THREE.Color(0x6fb2ec);
+// the same three colours when a storm is at its worst
+const STORM = { horizon: new THREE.Color(0x6d7480), mid: new THREE.Color(0x4b5360), zenith: new THREE.Color(0x2a303b) };
+const CLEAR = { horizon: HORIZON.clone(), mid: MID.clone(), zenith: ZENITH.clone() };
 const WARM = new THREE.Color(0xffe2a8);
 const GROUND = new THREE.Color(0x6a9c4a);
 
@@ -55,5 +58,14 @@ export function createSky(scene, renderer) {
   scene.fog = new THREE.Fog(HORIZON, 90, 680);
   return {
     follow(camera) { dome.position.copy(camera.position); },
+    // 0 = blue sky, 1 = thunderstorm (the uniform colours are shared objects, so mutating them re-tints the dome and the fog)
+    setStorm(k) {
+      HORIZON.copy(CLEAR.horizon).lerp(STORM.horizon, k);
+      MID.copy(CLEAR.mid).lerp(STORM.mid, k);
+      ZENITH.copy(CLEAR.zenith).lerp(STORM.zenith, k);
+      scene.fog.color.copy(HORIZON);
+      scene.fog.near = 90 - 50 * k;
+      scene.fog.far = 680 - 380 * k;
+    },
   };
 }

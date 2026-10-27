@@ -14,6 +14,7 @@ import { createSky, SUN_DIR } from './render/sky.js';
 import { createParticles } from './render/fx.js';
 import { createPost } from './render/post.js';
 import { buildMoped } from './render/moped.js';
+import { buildRamps, createPickupMeshes } from './render/extras.js';
 
 const exposeDebug = import.meta.env.DEV || import.meta.env.MODE === 'test';
 const BASE_FOV = 58;
@@ -44,7 +45,8 @@ async function start() {
   const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 1000);
   const sky = createSky(scene, renderer);
 
-  scene.add(new THREE.HemisphereLight(0xdfeaf5, 0x7a9456, 0.95));
+  const hemi = new THREE.HemisphereLight(0xdfeaf5, 0x7a9456, 0.95);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff0d2, 3.2);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -54,12 +56,16 @@ async function start() {
   scene.add(sun, sun.target);
 
   buildTerrain(scene, game.length);
-  buildRoad(scene, game.length);
+  const roadMaterial = buildRoad(scene, game.length);
   const props = buildProps(scene, { length: game.length, jokes: content.jokes, world });
+  buildRamps(scene, game.ramps);
+  const pickupMeshes = createPickupMeshes(scene, game.pickups, game.surface);
   const moped = buildMoped();
   moped.root.scale.setScalar(1.3);
   scene.add(moped.root);
   const fx = createParticles(scene, 700);
+  const rain = createParticles(scene, 1800);
+  const ufo = world.landmarks.find((l) => l.kind === 'ufo');
   const post = createPost(renderer, scene, camera);
 
   // ---- quality: always high unless ?quality=medium|low is in the URL (frame rate is not a goal of this game)
@@ -75,6 +81,7 @@ async function start() {
     sun.castShadow = quality >= 1;
     props.setQuality(quality);
     fx.setScale(window.innerHeight * pr, BASE_FOV);
+    rain.setScale(window.innerHeight * pr, BASE_FOV);
   }
   function resize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -109,7 +116,18 @@ async function start() {
   let shoutBlend = 0;
   let shake = 0;
   let clock = 0;
-  const emit = { exhaust: 0, dust: 0, smoke: 0, steam: 0, mote: 0 };
+  let stormK = 0; // smoothed rain intensity driving the look of the sky
+  let flash = 0; // lightning flash
+  let lightnings = 0;
+  const flickers = []; // times (clock) of the lightning's second flicker
+  const emit = { exhaust: 0, dust: 0, smoke: 0, steam: 0, mote: 0, ufo: 0 };
+  const PICKUP_TOAST = {
+    coffee: '☕ Coffee! You calm down a bit',
+    tape: '🩹 Duct tape! The next fix is easier',
+    nitro: '🚀 NITRO! Hold on tight',
+    petrol: '⛽ Petrol can! Next breakdown is delayed',
+  };
+  const PICKUP_COLOUR = { coffee: 0xffffff, tape: 0xb9bfc9, nitro: 0x2f8dff, petrol: 0xd8322a };
   const tmp = new THREE.Vector3();
   const tmp2 = new THREE.Vector3();
 
@@ -132,6 +150,32 @@ async function start() {
       } else if (e.type === 'fixed') {
         moped.root.getWorldPosition(tmp);
         for (let i = 0; i < 24; i++) fx.spawn(tmp.x, tmp.y + 0.9, tmp.z, (Math.random() - 0.5) * 5, 1 + Math.random() * 3, (Math.random() - 0.5) * 5, 0.9, 0.09, 0.03, i % 2 ? 0xffe14a : 0x7bff7b, 0.9, 1.5, -3);
+      } else if (e.type === 'pickup') {
+        hud.showToast(PICKUP_TOAST[e.kind]);
+        moped.root.getWorldPosition(tmp);
+        for (let i = 0; i < 22; i++) fx.spawn(tmp.x, tmp.y + 1, tmp.z, (Math.random() - 0.5) * 5, 1 + Math.random() * 3, (Math.random() - 0.5) * 5, 0.8, 0.14, 0.04, PICKUP_COLOUR[e.kind], 0.9, 1.5, -2);
+      } else if (e.type === 'land') {
+        if (e.impact > 4) {
+          shake = Math.max(shake, Math.min(0.7, e.impact / 14));
+          moped.root.getWorldPosition(tmp);
+          for (let i = 0; i < 12; i++) fx.spawn(tmp.x + (Math.random() - 0.5), tmp.y + 0.2, tmp.z + (Math.random() - 0.5), (Math.random() - 0.5) * 4, 0.5 + Math.random(), (Math.random() - 0.5) * 4, 0.8, 0.2, 1, 0xb5aa8a, 0.5, 2);
+        }
+      } else if (e.type === 'crash') {
+        shake = 1;
+        hud.showToast('💥 CRASH LANDING! Something broke');
+      } else if (e.type === 'rain-start') {
+        hud.showToast('🌧️ It starts to rain. Breakdowns come sooner!');
+      } else if (e.type === 'rain-stop') {
+        hud.showToast('🌤️ The rain stops');
+      } else if (e.type === 'lightning') {
+        lightnings += 1;
+        flash = 1;
+        flickers.push(clock + 0.16);
+      } else if (e.type === 'scare') {
+        shake = Math.max(shake, 0.7);
+        hud.showToast('⚡ That was close! AAH!');
+      } else if (e.type === 'tape-used') {
+        hud.showToast('🩹 Duct tape saves the day');
       } else if (e.type === 'kickFail') {
         shake = Math.max(shake, 0.5);
         moped.exhaustTip.getWorldPosition(tmp);
@@ -226,7 +270,7 @@ async function start() {
     }
     // smoke from a dead engine / sputtering
     emit.smoke -= dt;
-    if (emit.smoke <= 0 && ((game.breakdown && game.breakdown.type === 'engine') || game.sputtering)) {
+    if (emit.smoke <= 0 && ((game.breakdown && (game.breakdown.type === 'engine' || game.breakdown.type === 'spark')) || game.sputtering)) {
       emit.smoke = 0.07;
       moped.root.getWorldPosition(tmp);
       tmp2.set(0.0, 0.62, 0.3).applyAxisAngle(new THREE.Vector3(0, 1, 0), -m.heading);
@@ -241,6 +285,12 @@ async function start() {
         tmp2.set(s * 0.16, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), -m.heading);
         fx.spawn(tmp.x + tmp2.x, tmp.y + tmp2.y, tmp.z + tmp2.z, s * 0.3, 0.8, 0, 0.8, 0.1, 0.45, 0xffffff, 0.55, 1, 0.5);
       }
+    }
+    // the crashed UFO smoulders (only worth drawing when you are anywhere near it)
+    emit.ufo -= dt;
+    if (ufo && emit.ufo <= 0 && Math.hypot(ufo.x - m.x, ufo.z - m.z) < 160) {
+      emit.ufo = 0.12;
+      fx.spawn(wx(ufo.x) + (Math.random() - 0.5) * 2, terrainY(ufo.x, ufo.z) + 4.5, ufo.z + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 0.6, 1.2, 0, 3.2, 0.8, 4, Math.random() < 0.25 ? 0x6bff9a : 0x4a4a50, 0.5, 0.3, 0.4);
     }
     // floating pollen around the camera
     emit.mote -= dt;
@@ -272,13 +322,21 @@ async function start() {
     }
 
     const m = game.moped;
-    // stand on the terrain: height from the two wheels, pitch along the slope, roll across it
+    // stand on the ground (hills and ramps): pitch along the slope, roll across it; in the air nose follows the flight path
     const sh = Math.sin(m.heading), ch = Math.cos(m.heading);
-    const hF = terrainY(m.x + sh * 0.6, m.z + ch * 0.6), hB = terrainY(m.x - sh * 0.6, m.z - ch * 0.6);
-    const hR = terrainY(m.x + ch * 0.35, m.z - sh * 0.35), hL = terrainY(m.x - ch * 0.35, m.z + sh * 0.35);
     const clampTilt = (v) => Math.max(-0.9, Math.min(0.9, v));
-    moped.root.position.set(wx(m.x), (hF + hB) / 2, m.z);
-    moped.root.rotation.set(-clampTilt(Math.atan2(hF - hB, 1.2)), -m.heading, clampTilt(-Math.atan2(hR - hL, 0.7)), 'YXZ');
+    let pitch, roll;
+    if (m.air) {
+      pitch = clampTilt(Math.atan2(m.vy, Math.max(4, Math.abs(m.speed))));
+      roll = 0;
+    } else {
+      const hF = game.surface(m.x + sh * 0.6, m.z + ch * 0.6), hB = game.surface(m.x - sh * 0.6, m.z - ch * 0.6);
+      const hR = game.surface(m.x + ch * 0.35, m.z - sh * 0.35), hL = game.surface(m.x - ch * 0.35, m.z + sh * 0.35);
+      pitch = clampTilt(Math.atan2(hF - hB, 1.2));
+      roll = clampTilt(-Math.atan2(hR - hL, 0.7));
+    }
+    moped.root.position.set(wx(m.x), m.y, m.z);
+    moped.root.rotation.set(-pitch, -m.heading, roll, 'YXZ');
     moped.update(dt, {
       speed: m.speed,
       steer: m.steerAngle,
@@ -303,6 +361,24 @@ async function start() {
     sun.position.copy(moped.root.position).addScaledVector(SUN_DIR, 80);
 
     props.update(dt, clock);
+    pickupMeshes.update(clock, game.collected);
+
+    // weather: the sky darkens, the road gets wet, rain falls and lightning flashes
+    stormK += (game.weather.intensity - stormK) * Math.min(1, dt * 2);
+    for (let i = flickers.length - 1; i >= 0; i--) if (clock >= flickers[i]) { flash = Math.max(flash, 0.75); flickers.splice(i, 1); }
+    flash = Math.max(0, flash - dt * 3.5);
+    hemi.intensity = 0.95 - 0.4 * stormK + flash * 2.5;
+    sun.intensity = 3.2 - 2.3 * stormK + flash * 5;
+    renderer.toneMappingExposure = 1 - 0.1 * stormK + flash * 1.6;
+    roadMaterial.roughness = 0.82 - 0.5 * stormK;
+    sky.setStorm(stormK);
+    if (stormK > 0.02) {
+      const n = Math.round(stormK * 900 * dt);
+      for (let i = 0; i < n; i++) rain.spawn(camera.position.x + (Math.random() - 0.5) * 34, camera.position.y + 3 + Math.random() * 9, camera.position.z + (Math.random() - 0.3) * 34, -2, -24, 0, 0.55, 0.07, 0.07, 0xc4d6ea, 0.7, 0);
+    }
+    rain.update(dt);
+    audio.weather(stormK, flash);
+
     emitParticles(dt, inp);
     fx.update(dt);
     updateCamera(dt);
@@ -337,11 +413,30 @@ async function start() {
       roadX: (z) => roadCenterX(z),
       get houses() { return world.houses.map((h) => ({ x: h.x, z: h.z, s: h.s })); },
       teleport: (z, heading = 0, x = roadCenterX(z)) => {
-        game.moped.z = z;
-        game.moped.x = x;
-        game.moped.heading = heading;
+        game.teleport(x, z, heading);
         camInit = false;
       },
+      // new content
+      get air() { return game.moped.air; },
+      get stats() { return { ...game.stats }; },
+      get boostLeft() { return game.boostLeft; },
+      get tape() { return game.tape; },
+      get pickups() { return game.pickups.map((p) => ({ ...p })); },
+      get collected() { return [...game.collected]; },
+      get ramps() { return game.ramps.map((r) => ({ ...r })); },
+      get raining() { return game.weather.raining; },
+      get rainIntensity() { return game.weather.intensity; },
+      get lightnings() { return lightnings; },
+      restart: () => { game.restart(); camInit = false; },
+      get landmarks() { return world.landmarks.map((l) => ({ kind: l.kind, x: l.x, z: l.z })); },
+      get fixProgress() { return game.breakdown ? game.breakdown.progress : null; },
+      // let the moped fall from h metres up (to test hard landings)
+      drop: (h) => { game.moped.y += h; game.moped.air = true; game.moped.vy = 0; },
+      get breakdownType() { return game.breakdown ? game.breakdown.type : null; },
+      forceRain: (on) => game.weather.force(on),
+      strike: (scary = false) => game.strikeLightning({ scary }),
+      addFrustration: (n) => game.addFrustration(n),
+      surfaceAt: (x, z) => game.surface(x, z),
     };
   }
 

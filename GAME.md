@@ -11,9 +11,10 @@ frustration he shouts one of the shout lines below.
 ## Version 1
 - One road from start to finish, about 2 minutes of riding.
 - Setting: countryside village (fields, farms, houses, trees).
-- Breakdowns happen at random: engine dies, chain falls off, flat tyre.
-- Fixing: engine = hammer Space to kick-start; chain = press the arrow keys shown on screen in
-  order; tyre = hold E for 3 seconds.
+- Breakdowns happen at random: engine dies, chain falls off, flat tyre, out of petrol, fouled spark plug.
+- Fixing: engine = hammer Space to kick-start; chain = press the arrow keys (or A/D for left/right)
+  shown on screen in order; tyre = hold E for 3 seconds; out of petrol = push the moped by
+  alternating A and D (it really moves); spark plug = hold E for 1.5 seconds, then hammer Space.
 - Frustration meter goes up with every breakdown and failed kick-start.
 - Full frustration: the rider shouts (big speech bubble + the browser's speech voice if available),
   then the meter resets.
@@ -29,10 +30,23 @@ frustration he shouts one of the shout lines below.
   too steep).
 - You can reverse and turn all the way round. The only edges are far away.
 
+## Crazy extras
+- Pickups float along the road and out in the fields (so roaming is rewarded):
+  coffee = calms the rider (-30 frustration), duct tape = the next fix starts 60% done,
+  nitro = 4 seconds of boost, petrol can = the next breakdown is delayed by 20 seconds.
+- Jump ramps (striped wooden wedges) on and beside the road. You really fly: the moped leaves
+  the ground, has little steering control in the air and lands again. An ordinary jump is safe;
+  a landing from too high or too fast (nitro off a ramp, big drops) breaks the moped.
+- Weather: rain comes and goes by itself. Rain makes breakdowns more likely (up to 1.7x), makes the
+  road shiny, darkens the sky, and brings lightning with thunder. A strike close by scares the
+  rider (+10 frustration).
+- Crazy landmarks: a giant rubber duck, a very proud moose statue and a crashed, smouldering UFO.
+- The finish screen also shows jumps and the best air time.
+
 ## Controls
 - W / Up: throttle
 - S / Down: brake (hold it at a standstill to reverse)
-- A / D or Left / Right: steer
+- A / D or Left / Right: steer (A/D and the arrows also count as left/right presses for fixes)
 - Space: kick-start
 - E: fix
 

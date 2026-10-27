@@ -6,7 +6,7 @@ const SCREENS = 'test-results/screens';
 fs.mkdirSync(SCREENS, { recursive: true });
 
 test('visual tour at high quality', async ({ page }) => {
-  test.setTimeout(180000);
+  test.setTimeout(480000);
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -45,5 +45,33 @@ test('visual tour at high quality', async ({ page }) => {
   await page.evaluate(() => { window.__game.maxFrustration(); window.__game.forceBreakdown('tyre'); });
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${SCREENS}/v7-shout-face.png` });
+  // the crazy content: ramp, pickups, giant duck, moose, crashed UFO, a storm
+  await page.evaluate(() => { window.__game.restart(); window.__game.teleport(300); });
+  const r = await page.evaluate(() => window.__game.ramps[0]);
+  await page.evaluate((q) => window.__game.teleport(q.z - Math.cos(q.heading) * (q.len / 2 + 9), q.heading, q.x - Math.sin(q.heading) * (q.len / 2 + 9)), r);
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SCREENS}/v9-ramp.png` });
+  const p = await page.evaluate(() => { const G = window.__game; return G.pickups.find((q) => Math.abs(q.x - G.roadX(q.z)) < 3 && q.z > 100); });
+  await page.evaluate((q) => window.__game.teleport(q.z - 9, 0, q.x), p);
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SCREENS}/v10-pickups.png` });
+  for (const kind of ['duck', 'moose', 'ufo']) {
+    await page.evaluate((k) => {
+      const G = window.__game; const l = G.landmarks.find((q) => q.kind === k);
+      const z = l.z - 32; const x = G.roadX(z);
+      G.teleport(z, Math.atan2(l.x - x, 32), x);
+    }, kind);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: `${SCREENS}/v11-${kind}.png` });
+  }
+  await page.evaluate(() => { window.__game.teleport(400); window.__game.forceRain(true); });
+  await page.waitForFunction(() => window.__game.rainIntensity > 0.9, null, { timeout: 90000 });
+  await page.keyboard.down('w');
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${SCREENS}/v12-rain.png` });
+  await page.evaluate(() => window.__game.strike(false));
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${SCREENS}/v13-lightning.png` });
+  await page.keyboard.up('w');
   expect(errors).toEqual([]);
 });

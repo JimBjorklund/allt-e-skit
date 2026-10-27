@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { roadCenterX, ROAD_HALF_WIDTH } from '../logic/road.js';
 import { terrainY } from './terrain.js';
+import { duckGeometry, mooseGeometry, ufoGeometry } from './extras.js';
 import { wx, mulberry32, mergeParts, vcMat as vcPlain, canvasTexture, addWind, addProximityFade, windUniform } from './util.js';
 
 // everything you can ride through fades out near the moped and the camera
@@ -303,6 +304,9 @@ export function buildProps(scene, { length, jokes, world }) {
     { geo: box(2, 0.1, 0.5), color: 0x8a5a2e, pos: [0, 0.6, -0.4] },
   ]);
   geos.shelter = shelter;
+  geos.duck = duckGeometry();
+  geos.moose = mooseGeometry();
+  geos.ufo = ufoGeometry();
   for (const l of world.landmarks) {
     if (!geos[l.kind]) continue;
     const m = shadowed(new THREE.Mesh(geos[l.kind], vcMat({ flatShading: true }, BIG)));

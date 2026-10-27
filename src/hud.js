@@ -80,10 +80,12 @@ export function createHud(game, { onRestart }) {
     meter: $('meter').firstElementChild, meterWrap: $('meter-wrap'), face: $('face'),
     fix: $('fix-panel'), fixTitle: $('fix-title'), fixText: $('fix-text'), fixKeys: $('fix-keys'), fixBar: $('fix-bar').firstElementChild,
     shout: $('shout-bubble'), finish: $('finish-screen'), joke: $('joke'),
+    toast: $('toast'), weather: $('weather'), boost: $('boost'), boostBar: $('boost-bar').firstElementChild, tape: $('tape'),
   };
   const gauge = $('gauge').getContext('2d');
   let shoutLeft = 0;
   let jokeLeft = 0;
+  let toastLeft = 0;
   let shownBreakdown = null;
   let lastFace = '';
   let stopConfetti = null;
@@ -98,7 +100,10 @@ export function createHud(game, { onRestart }) {
     engine: ['Engine died!', 'Hammer to kick-start'],
     chain: ['Chain fell off!', 'Press the arrow keys in order'],
     tyre: ['Flat tyre!', 'Hold for 3 seconds'],
+    fuel: ['Out of petrol!', 'Push it: alternate A and D'],
+    spark: ['Spark plug fouled!', 'Hold E to unscrew it, then hammer Space'],
   };
+  const keycap = (label, cls = '') => `<span class="key ${cls}" data-key="${label}">${label}</span>`;
 
   return {
     showShout(text) {
@@ -107,6 +112,13 @@ export function createHud(game, { onRestart }) {
       el.shout.textContent = text;
       el.shout.hidden = false;
       shoutLeft = SHOUT_SECONDS;
+    },
+    showToast(text) {
+      el.toast.hidden = true;
+      void el.toast.offsetWidth;
+      el.toast.textContent = text;
+      el.toast.hidden = false;
+      toastLeft = 3.2;
     },
     showJoke(text) {
       el.joke.hidden = true;
@@ -136,6 +148,14 @@ export function createHud(game, { onRestart }) {
         jokeLeft -= dt;
         if (jokeLeft <= 0) el.joke.hidden = true;
       }
+      if (toastLeft > 0) {
+        toastLeft -= dt;
+        if (toastLeft <= 0) el.toast.hidden = true;
+      }
+      el.weather.textContent = game.weather.raining ? '🌧️' : '';
+      el.boost.hidden = game.boostLeft <= 0;
+      el.boostBar.style.width = `${Math.min(100, (game.boostLeft / 8) * 100)}%`;
+      el.tape.hidden = !game.tape;
 
       const b = game.breakdown;
       el.fix.hidden = !b;
@@ -147,6 +167,8 @@ export function createHud(game, { onRestart }) {
           el.fixText.textContent = TEXT[b.type][1];
           el.fixKeys.innerHTML = b.type === 'chain'
             ? b.sequence.map((k) => `<span class="key arrow arrow-${k}">${ARROW_CHARS[k]}</span>`).join('')
+            : b.type === 'fuel' ? keycap('A') + keycap('D')
+            : b.type === 'spark' ? keycap('E') + keycap('SPACE')
             : `<span class="key big">${b.type === 'engine' ? 'SPACE' : 'E'}</span>`;
         }
         if (b.type === 'chain') {
@@ -154,6 +176,14 @@ export function createHud(game, { onRestart }) {
             a.classList.toggle('done', i < b.index);
             a.classList.toggle('next', i === b.index);
           });
+        } else if (b.type === 'fuel') {
+          for (const k of el.fixKeys.children) k.classList.toggle('next', k.dataset.key === (b.next === 'left' ? 'A' : 'D'));
+        } else if (b.type === 'spark') {
+          for (const k of el.fixKeys.children) {
+            const on = k.dataset.key === (b.phase === 'hold' ? 'E' : 'SPACE');
+            k.classList.toggle('next', on);
+            k.classList.toggle('done', !on && b.phase === 'kick' && k.dataset.key === 'E');
+          }
         }
         el.fixBar.style.width = `${b.progress * 100}%`;
       } else {
@@ -165,6 +195,8 @@ export function createHud(game, { onRestart }) {
         $('f-time').textContent = formatTime(game.time);
         $('f-breakdowns').textContent = game.breakdowns;
         $('f-shouts').textContent = game.shoutCount;
+        $('f-jumps').textContent = game.stats.jumps;
+        $('f-air').textContent = game.stats.bestAir > 0 ? `(best air time ${game.stats.bestAir.toFixed(1)} s)` : '';
         el.finish.hidden = false;
         stopConfetti = confetti($('confetti'));
       } else if (!done && !el.finish.hidden) {

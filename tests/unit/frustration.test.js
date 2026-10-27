@@ -14,6 +14,14 @@ describe('frustration', () => {
     expect(f.add(60)).toBe(true);
     expect(f.level).toBe(0);
   });
+  it('reduce() calms the rider down but never below zero', () => {
+    const f = createFrustration();
+    f.add(50);
+    f.reduce(30);
+    expect(f.level).toBe(20);
+    f.reduce(99);
+    expect(f.level).toBe(0);
+  });
   it('max() fills the meter', () => {
     const f = createFrustration();
     f.max();

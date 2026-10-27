@@ -153,8 +153,8 @@ export function buildRoad(scene, length) {
     ctx.fillRect(0.491 * w, 0, 0.018 * w, h * 0.42);
   });
   asphalt.wrapS = asphalt.wrapT = THREE.RepeatWrapping;
-  const road = ribbon(-60, length + 90, 2.5, ROAD_HALF_WIDTH, 0.025, new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.82, metalness: 0 }), 8);
-  scene.add(road);
+  const roadMaterial = new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.82, metalness: 0 });
+  scene.add(ribbon(-60, length + 90, 2.5, ROAD_HALF_WIDTH, 0.025, roadMaterial, 8));
 
   const gravel = canvasTexture(128, 128, (ctx, w, h) => {
     ctx.fillStyle = '#b3a276'; ctx.fillRect(0, 0, w, h);
@@ -166,4 +166,5 @@ export function buildRoad(scene, length) {
   });
   gravel.wrapS = gravel.wrapT = THREE.RepeatWrapping;
   scene.add(ribbon(-60, length + 90, 2.5, ROAD_HALF_WIDTH + 1.3, 0.01, new THREE.MeshStandardMaterial({ map: gravel, roughness: 1 }), 4));
+  return roadMaterial; // rain makes it shiny
 }
