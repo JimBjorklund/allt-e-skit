@@ -1,23 +1,13 @@
 import { roadCenterX, ROAD_HALF_WIDTH } from './road.js';
-import { circle, box } from './collision.js';
 import { mulberry32, noise2 } from './random.js';
 
-// Where everything in the countryside stands. The renderer draws exactly these things and the driving
-// code collides with exactly these things, so what you see is what you hit.
-// `ry` / `yaw` are the three.js y-rotation of the object; a box's logic-space angle is the negative of it.
+// Where everything in the countryside stands. Scenery is decoration: you can ride straight through it.
+// `ry` / `yaw` are the three.js y-rotation of the object.
 
 const onSide = (z, side, d) => roadCenterX(z) + side * d;
 
-// logic-space position of a point given in an object's local frame (object at logic centre c, three.js yaw theta)
-function local(c, theta, lx, lz) {
-  const wxp = -c.x + lx * Math.cos(theta) + lz * Math.sin(theta);
-  const wzp = c.z - lx * Math.sin(theta) + lz * Math.cos(theta);
-  return { x: -wxp, z: wzp };
-}
-
 export function generateWorld(length, { signCount = 8 } = {}) {
   const rand = mulberry32(1998);
-  const obstacles = [];
 
   // houses
   const houses = [];
@@ -25,7 +15,6 @@ export function generateWorld(length, { signCount = 8 } = {}) {
     const side = rand() < 0.5 ? -1 : 1;
     houses.push({ x: onSide(z, side, 11.5 + rand() * 10), z, side, s: 0.85 + rand() * 0.5, ry: (side < 0 ? 0.25 : -0.25) + (rand() - 0.5) * 0.3 });
   }
-  for (const h of houses) obstacles.push(box(h.x, h.z, 3 * h.s, 2.5 * h.s, -h.ry));
 
   // trees: groves where the noise is high, a few lone trees elsewhere
   const trees = [];
@@ -41,8 +30,6 @@ export function generateWorld(length, { signCount = 8 } = {}) {
     const kind = grove > 0.62 ? (r < 0.65 ? 'pine' : r < 0.85 ? 'oak' : 'birch') : (r < 0.55 ? 'oak' : r < 0.8 ? 'birch' : 'pine');
     trees.push({ kind, x, z, s: 0.75 + rand() * 0.8, ry: rand() * 6.28 });
   }
-  const trunk = { pine: 0.4, oak: 0.5, birch: 0.3 };
-  for (const t of trees) obstacles.push(circle(t.x, t.z, trunk[t.kind] * t.s));
 
   // post-and-rail fences along the road in stretches
   const fences = [];
@@ -55,14 +42,12 @@ export function generateWorld(length, { signCount = 8 } = {}) {
       fences.push({ x, z, x2, z2: z + 3.6, cx: (x + x2) / 2, cz: z + 1.8, len, yaw: -Math.atan2(x2 - x, 3.6) });
     }
   }
-  for (const f of fences) obstacles.push(box(f.cx, f.cz, 0.12, f.len / 2, -f.yaw));
 
   // power poles on the left of the road
   const poles = [];
   for (let z = 30; z < length + 40; z += 55) {
     const x = onSide(z, -1, ROAD_HALF_WIDTH + 5.2);
     poles.push({ x, z, yaw: Math.atan2(-(onSide(z + 1, -1, ROAD_HALF_WIDTH + 5.2) - onSide(z - 1, -1, ROAD_HALF_WIDTH + 5.2)), 2) + Math.PI / 2 });
-    obstacles.push(circle(x, z, 0.2));
   }
 
   // hay rolls
@@ -70,11 +55,10 @@ export function generateWorld(length, { signCount = 8 } = {}) {
   for (let i = 0; i < 16; i++) {
     const z = 60 + rand() * (length - 100), side = rand() < 0.5 ? -1 : 1, x = onSide(z, side, 16 + rand() * 24);
     hay.push({ x, z, ry: rand() * 6.28 });
-    obstacles.push(circle(x, z, 0.95));
   }
 
   // grazing animals in small herds
-  const herd = (n, seedZ, radius) => {
+  const herd = (n, seedZ) => {
     const out = [];
     let i = 0;
     while (i < n) {
@@ -83,13 +67,12 @@ export function generateWorld(length, { signCount = 8 } = {}) {
       for (let k = 0; k < groupN; k++, i++) {
         const x = cx + (rand() - 0.5) * 9, z = cz + (rand() - 0.5) * 9;
         out.push({ x, z, ry: rand() * 6.28, s: 0.9 + rand() * 0.25 });
-        obstacles.push(circle(x, z, radius));
       }
     }
     return out;
   };
-  const cows = herd(11, 140, 0.75);
-  const sheep = herd(16, 380, 0.5);
+  const cows = herd(11, 140);
+  const sheep = herd(16, 380);
 
   // landmarks
   const lm = (kind, z, side, d, yaw) => ({ kind, z, side, d, yaw, x: onSide(z, side, d) });
@@ -99,23 +82,6 @@ export function generateWorld(length, { signCount = 8 } = {}) {
     lm('shelter', 55, 1, ROAD_HALF_WIDTH + 3.6, Math.PI),
     lm('windmill', 450, 1, 48, Math.PI + 0.45),
   ];
-  for (const l of landmarks) {
-    const c = { x: l.x, z: l.z };
-    if (l.kind === 'barn') {
-      obstacles.push(box(c.x, c.z, 3.5, 4.5, -l.yaw));
-      const s = local(c, l.yaw, 5.4, 1.5);
-      obstacles.push(circle(s.x, s.z, 1.3));
-    } else if (l.kind === 'church') {
-      obstacles.push(box(c.x, c.z, 2.5, 4.5, -l.yaw));
-      const t = local(c, l.yaw, 0, 5.6);
-      obstacles.push(box(t.x, t.z, 1.5, 1.5, -l.yaw));
-    } else if (l.kind === 'shelter') {
-      obstacles.push(box(c.x, c.z, 1.5, 0.8, -l.yaw));
-    } else {
-      obstacles.push(circle(c.x, c.z, 2.8));
-    }
-  }
-
   // joke signs (two posts each) and the start/finish gates
   const signs = [];
   for (let i = 0; i < signCount; i++) {
@@ -124,10 +90,8 @@ export function generateWorld(length, { signCount = 8 } = {}) {
     const x = onSide(z, side, ROAD_HALF_WIDTH + 3.4);
     const yaw = Math.PI + (side < 0 ? -0.15 : 0.15);
     signs.push({ x, z, side, yaw });
-    for (const lx of [-1.5, 1.5]) { const p = local({ x, z }, yaw, lx, 0); obstacles.push(circle(p.x, p.z, 0.15)); }
   }
   const gates = [{ z: 14, label: 'START' }, { z: length, label: 'FINISH' }];
-  for (const g of gates) for (const s of [-1, 1]) obstacles.push(circle(roadCenterX(g.z) + s * (ROAD_HALF_WIDTH + 1.2), g.z, 0.3));
 
-  return { houses, trees, fences, poles, hay, cows, sheep, landmarks, signs, gates, obstacles };
+  return { houses, trees, fences, poles, hay, cows, sheep, landmarks, signs, gates };
 }

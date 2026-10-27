@@ -5,7 +5,8 @@ const live = process.env.BASE_URL;
 
 export default defineConfig({
   testDir: 'tests/e2e',
-  timeout: 90000,
+  timeout: 120000,
+  expect: { timeout: 20000 }, // the software renderer in headless Chromium is slow
   workers: 1,
   reporter: 'list',
   use: {

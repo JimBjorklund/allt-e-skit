@@ -1,8 +1,13 @@
 import * as THREE from 'three';
 import { roadCenterX, ROAD_HALF_WIDTH } from '../logic/road.js';
 import { terrainY } from './terrain.js';
-import { wx, mulberry32, mergeParts, vcMat, canvasTexture, addWind, windUniform } from './util.js';
+import { wx, mulberry32, mergeParts, vcMat as vcPlain, canvasTexture, addWind, addProximityFade, windUniform } from './util.js';
 
+// everything you can ride through fades out near the moped and the camera
+const vcMat = (o, fade) => addProximityFade(vcPlain(o), fade);
+const fadeStd = (o, fade) => addProximityFade(new THREE.MeshStandardMaterial(o), fade);
+const BIG = { inner: 3, outer: 7 }; // houses and other buildings dissolve when you ride into them
+const THIN = { inner: 0.4, outer: 1.4 }; // fences only where you actually cross them
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const cyl = (rt, rb, h, seg = 8) => new THREE.CylinderGeometry(rt, rb, h, seg);
 const ico = (r, detail = 1) => new THREE.IcosahedronGeometry(r, detail);
@@ -155,10 +160,10 @@ export function buildProps(scene, { length, jokes, world }) {
   // ---- houses
   const wallTex = houseWallTexture(), roofTex = roofTexture();
   const spots = world.houses;
-  const houseBody = shadowed(new THREE.InstancedMesh(box(6, 3.6, 5), new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.9 }), spots.length));
+  const houseBody = shadowed(new THREE.InstancedMesh(box(6, 3.6, 5), fadeStd({ map: wallTex, roughness: 0.9 }, BIG), spots.length));
   const roofGeo = cone(4.9, 2.4, 4); roofGeo.rotateY(Math.PI / 4);
-  const houseRoof = shadowed(new THREE.InstancedMesh(roofGeo, new THREE.MeshStandardMaterial({ map: roofTex, roughness: 0.8 }), spots.length));
-  const chimney = shadowed(new THREE.InstancedMesh(box(0.7, 1.6, 0.7), vcMat({ vertexColors: false, color: 0x8a5a48 }), spots.length));
+  const houseRoof = shadowed(new THREE.InstancedMesh(roofGeo, fadeStd({ map: roofTex, roughness: 0.8 }, BIG), spots.length));
+  const chimney = shadowed(new THREE.InstancedMesh(box(0.7, 1.6, 0.7), vcMat({ vertexColors: false, color: 0x8a5a48 }, BIG), spots.length));
   const bodyCols = [0xf0c8c0, 0xf5df9b, 0xf4f1e6, 0xaed2ee, 0xf2b88a, 0xc9e0b0, 0xe58a80];
   const roofCols = [0xa04a3c, 0x5c6178, 0x9b5a34, 0x7a3a34];
   spots.forEach((h, i) => {
@@ -183,7 +188,7 @@ export function buildProps(scene, { length, jokes, world }) {
 
   // ---- grass tufts and flowers
   const GR = 15000;
-  const grass = new THREE.InstancedMesh(tuftGeometry(), addWind(vcMat({ side: THREE.DoubleSide, roughness: 1 }), { amount: 0.3, freq: 2.2, heightScale: 1.2 }), GR);
+  const grass = new THREE.InstancedMesh(tuftGeometry(), addWind(vcPlain({ side: THREE.DoubleSide, roughness: 1 }), { amount: 0.3, freq: 2.2, heightScale: 1.2 }), GR);
   const greens = [0xd8ffc8, 0xffffff, 0xe8ffb0, 0xc4f0a8, 0xf4ffd0];
   for (let i = 0; i < GR; i++) {
     const z = rand() * (length + 200) - 70;
@@ -195,7 +200,7 @@ export function buildProps(scene, { length, jokes, world }) {
   }
   scene.add(grass);
   const FL = 2600;
-  const flowers = new THREE.InstancedMesh(flowerGeometry(), addWind(vcMat({ roughness: 0.7 }), { amount: 0.25, freq: 2.4, heightScale: 1.6 }), FL);
+  const flowers = new THREE.InstancedMesh(flowerGeometry(), addWind(vcPlain({ roughness: 0.7 }), { amount: 0.25, freq: 2.4, heightScale: 1.6 }), FL);
   const petals = [0xffffff, 0xffe14a, 0xff6f91, 0xb48cff, 0xff9a3c, 0x7cc8ff];
   for (let i = 0; i < FL; i++) {
     const z = rand() * (length + 200) - 70;
@@ -210,9 +215,9 @@ export function buildProps(scene, { length, jokes, world }) {
   // ---- fences along the road in stretches
   const posts = world.fences.map((f) => ({ x: f.x, z: f.z }));
   const rails = world.fences.map((f) => ({ x: f.cx, z: f.cz, yaw: f.yaw, len: f.len }));
-  const postM = shadowed(new THREE.InstancedMesh(box(0.14, 1.05, 0.14), vcMat({ vertexColors: false, color: 0xe9e0c9 }), posts.length), true, false);
+  const postM = shadowed(new THREE.InstancedMesh(box(0.14, 1.05, 0.14), vcMat({ vertexColors: false, color: 0xe9e0c9 }, THIN), posts.length), true, false);
   posts.forEach((p, i) => place(postM, i, p.x, groundAt(p.x, p.z) + 0.52, p.z));
-  const railM = shadowed(new THREE.InstancedMesh(box(0.06, 0.1, 1), vcMat({ vertexColors: false, color: 0xe9e0c9 }), rails.length * 2), true, false);
+  const railM = shadowed(new THREE.InstancedMesh(box(0.06, 0.1, 1), vcMat({ vertexColors: false, color: 0xe9e0c9 }, THIN), rails.length * 2), true, false);
   rails.forEach((r, i) => {
     const y = groundAt(r.x, r.z);
     place(railM, i * 2, r.x, y + 0.9, r.z, r.yaw, 1, 1, r.len);
@@ -300,7 +305,7 @@ export function buildProps(scene, { length, jokes, world }) {
   geos.shelter = shelter;
   for (const l of world.landmarks) {
     if (!geos[l.kind]) continue;
-    const m = shadowed(new THREE.Mesh(geos[l.kind], vcMat({ flatShading: true })));
+    const m = shadowed(new THREE.Mesh(geos[l.kind], vcMat({ flatShading: true }, BIG)));
     const x = l.x;
     m.position.set(wx(x), groundAt(x, l.z) - 0.05, l.z);
     m.rotation.y = l.yaw;
@@ -336,20 +341,10 @@ export function buildProps(scene, { length, jokes, world }) {
     dyn.push((dt) => { rotor.rotation.z += dt * 0.6; });
   }
 
-  // ---- far mountains (fog turns them into a hazy blue silhouette)
-  const mParts = [];
-  for (let i = 0; i < 16; i++) {
-    const side = i % 2 ? 1 : -1;
-    const x = side * (290 + rand() * 110), z = -60 + (i / 16) * (length + 400);
-    const h = 70 + rand() * 90, r = 90 + rand() * 80;
-    mParts.push({ geo: cone(r, h, 6), color: 0x4d7d6e, pos: [x, h / 2 - 8, z], rot: [0, rand() * 3, 0] });
-    mParts.push({ geo: cone(r * 0.17, h * 0.2, 6), color: 0xf4f7fa, pos: [x, h - h * 0.1 - 8, z], rot: [0, 0, 0] });
-  }
-  const far = new THREE.Mesh(mergeParts(mParts), vcMat({ flatShading: true, roughness: 1 }));
-  scene.add(far);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x6aa84a, roughness: 1 }));
+  // ---- far ground under everything (the real mountains are part of the terrain mesh)
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshStandardMaterial({ color: 0x5f8f48, roughness: 1 }));
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, -0.75, length / 2);
+  floor.position.set(0, -1.2, length / 2);
   scene.add(floor);
 
   // ---- clouds
@@ -372,7 +367,7 @@ export function buildProps(scene, { length, jokes, world }) {
     const g = new THREE.Group();
     const postGeo = mergeParts([{ geo: box(0.16, 2.6, 0.16), color: 0x5b3a1e, pos: [-1.5, 1.3, 0] }, { geo: box(0.16, 2.6, 0.16), color: 0x5b3a1e, pos: [1.5, 1.3, 0] }]);
     g.add(shadowed(new THREE.Mesh(postGeo, vcMat({ flatShading: true }))));
-    const board = shadowed(new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.0, 0.1), new THREE.MeshStandardMaterial({ map: textBoard(text, 512, 142), roughness: 0.8 })));
+    const board = shadowed(new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.0, 0.1), fadeStd({ map: textBoard(text, 512, 142), roughness: 0.8 })));
     board.position.y = 2.3;
     g.add(board);
     g.position.set(wx(x), groundAt(x, z), z);
@@ -415,8 +410,15 @@ export function buildProps(scene, { length, jokes, world }) {
     scene.add(gate);
   }
 
+  const GRASS_BY_QUALITY = [2500, 7000, GR];
+  const FLOWERS_BY_QUALITY = [500, 1300, FL];
   return {
     signs,
+    // fewer blades of grass and flowers on slower machines
+    setQuality(q) {
+      grass.count = GRASS_BY_QUALITY[q];
+      flowers.count = FLOWERS_BY_QUALITY[q];
+    },
     update(dt, time) {
       windUniform.value = time;
       for (const f of dyn) f(dt);

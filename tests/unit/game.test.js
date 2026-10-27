@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, BREAKDOWN_FRUSTRATION } from '../../src/logic/game.js';
-import { NO_OBSTACLES, createObstacleField, box } from '../../src/logic/collision.js';
 
 const seeded = (seed = 1) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 const input = (o = {}) => ({ throttle: false, brake: false, steer: 0, fixHeld: false, presses: [], ...o });
 const SHOUTS = ['AAA', 'BBB'];
-const newGame = (o = {}) => createGame({ shouts: SHOUTS, obstacles: NO_OBSTACLES, ...o });
+const newGame = (o = {}) => createGame({ shouts: SHOUTS, ...o });
 
 describe('game', () => {
   it('starts riding at zero', () => {
@@ -94,15 +93,16 @@ describe('game', () => {
     expect(g.breakdowns).toBe(0);
     expect(g.moped.z).toBe(0);
   });
-  it('a solid wall stops the moped and reports a bump', () => {
-    const g = newGame({ rng: seeded(), breakdownsEnabled: false, obstacles: createObstacleField([box(0, 12, 6, 0.3, 0)]) });
-    for (let i = 0; i < 60 * 6; i++) g.update(1 / 60, input({ throttle: true }));
-    expect(g.moped.z).toBeLessThan(12);
-    expect(g.drainEvents().some((e) => e.type === 'bump' && e.impact > 2.5)).toBe(true);
+  it('scenery is not solid: riding straight through the village never stops you', () => {
+    const g = createGame({ rng: seeded(), shouts: SHOUTS, breakdownsEnabled: false });
+    g.moped.z = 40;
+    for (let i = 0; i < 60 * 5; i++) g.update(1 / 60, input({ throttle: true }));
+    expect(g.moped.z).toBeGreaterThan(40 + 40);
   });
-  it('the default world has solid things in it', () => {
-    const g = createGame({ shouts: SHOUTS });
-    expect(g.state).toBe('riding');
+  it('reverses when you hold the brake', () => {
+    const g = newGame({ rng: seeded(), breakdownsEnabled: false });
+    for (let i = 0; i < 60 * 2; i++) g.update(1 / 60, input({ brake: true }));
+    expect(g.moped.z).toBeLessThan(0);
   });
   it('time counts while the game runs', () => {
     const g = newGame({ rng: seeded() });

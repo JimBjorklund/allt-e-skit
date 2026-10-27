@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import { createGame } from './logic/game.js';
 import { roadCenterX, ROAD_LENGTH } from './logic/road.js';
 import { generateWorld } from './logic/world.js';
-import { createObstacleField } from './logic/collision.js';
+import { terrainY } from './logic/terrain.js';
 import { loadContent } from './content.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
 import { createHud } from './hud.js';
-import { wx } from './render/util.js';
+import { wx, proximity } from './render/util.js';
 import { buildTerrain, buildRoad } from './render/terrain.js';
 import { buildProps } from './render/props.js';
 import { createSky, SUN_DIR } from './render/sky.js';
@@ -29,7 +29,6 @@ async function start() {
   const game = createGame({
     shouts: content.shouts,
     length: ROAD_LENGTH,
-    obstacles: createObstacleField(world.obstacles),
     breakdownsEnabled: !(exposeDebug && params.get('breakdowns') === 'off'),
   });
 
@@ -42,7 +41,7 @@ async function start() {
   renderer.info.autoReset = false; // count every pass of the frame (shadow + scene + post)
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 700);
+  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 1000);
   const sky = createSky(scene, renderer);
 
   scene.add(new THREE.HemisphereLight(0xdfeaf5, 0x7a9456, 0.95));
@@ -74,6 +73,7 @@ async function start() {
     post.enabled = quality >= 1;
     post.setBloom(quality >= 2);
     sun.castShadow = quality >= 1;
+    props.setQuality(quality);
     fx.setScale(window.innerHeight * pr, BASE_FOV);
   }
   function resize() {
@@ -131,15 +131,10 @@ async function start() {
       } else if (e.type === 'breakdown') {
         shake = 1;
         moped.root.getWorldPosition(tmp);
-        for (let i = 0; i < 14; i++) fx.spawn(tmp.x + (Math.random() - 0.5) * 0.4, 0.5, tmp.z - 0.4, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 1.6, 0.4, 1.6, 0x2a2a2e, 0.7, 1, 0.6);
+        for (let i = 0; i < 14; i++) fx.spawn(tmp.x + (Math.random() - 0.5) * 0.4, tmp.y + 0.5, tmp.z - 0.4, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 1.6, 0.4, 1.6, 0x2a2a2e, 0.7, 1, 0.6);
       } else if (e.type === 'fixed') {
         moped.root.getWorldPosition(tmp);
-        for (let i = 0; i < 24; i++) fx.spawn(tmp.x, 0.9, tmp.z, (Math.random() - 0.5) * 5, 1 + Math.random() * 3, (Math.random() - 0.5) * 5, 0.9, 0.09, 0.03, i % 2 ? 0xffe14a : 0x7bff7b, 0.9, 1.5, -3);
-      } else if (e.type === 'bump') {
-        shake = Math.max(shake, Math.min(0.8, e.impact / 12));
-        moped.root.getWorldPosition(tmp);
-        tmp2.set(0, 0, 0.6).applyAxisAngle(new THREE.Vector3(0, 1, 0), -game.moped.heading);
-        for (let i = 0; i < 10; i++) fx.spawn(tmp.x + tmp2.x, 0.4, tmp.z + tmp2.z, (Math.random() - 0.5) * 3, 0.5 + Math.random() * 1.5, (Math.random() - 0.5) * 3, 0.7, 0.2, 0.9, 0xc9bfa0, 0.55, 2);
+        for (let i = 0; i < 24; i++) fx.spawn(tmp.x, tmp.y + 0.9, tmp.z, (Math.random() - 0.5) * 5, 1 + Math.random() * 3, (Math.random() - 0.5) * 5, 0.9, 0.09, 0.03, i % 2 ? 0xffe14a : 0x7bff7b, 0.9, 1.5, -3);
       } else if (e.type === 'kickFail') {
         shake = Math.max(shake, 0.5);
         moped.exhaustTip.getWorldPosition(tmp);
@@ -153,7 +148,8 @@ async function start() {
     const fx_ = -Math.sin(m.heading);
     const fz_ = Math.cos(m.heading);
     const px = wx(m.x);
-    const speedK = Math.min(1, m.speed / 15);
+    const speedK = Math.min(1, Math.abs(m.speed) / 15);
+    const gy = moped.root.position.y;
     let wantPos, wantLook;
     let roll = -m.steerAngle * speedK * 0.045;
     let kPos = 6;
@@ -161,20 +157,20 @@ async function start() {
     if (!started) {
       // slow showroom orbit behind the start screen
       const a = clock * 0.35 + 0.6;
-      wantPos = new THREE.Vector3(px + Math.sin(a) * 3.6, 1.45, m.z + Math.cos(a) * 3.6);
-      wantLook = new THREE.Vector3(px, 0.85, m.z);
+      wantPos = new THREE.Vector3(px + Math.sin(a) * 3.6, gy + 1.45, m.z + Math.cos(a) * 3.6);
+      wantLook = new THREE.Vector3(px, gy + 0.85, m.z);
       kPos = 4;
       roll = 0;
     } else if (game.state === 'finished') {
       const a = clock * 0.5;
-      wantPos = new THREE.Vector3(px + Math.sin(a) * 5, 1.9, m.z + Math.cos(a) * 5);
-      wantLook = new THREE.Vector3(px, 0.9, m.z);
+      wantPos = new THREE.Vector3(px + Math.sin(a) * 5, gy + 1.9, m.z + Math.cos(a) * 5);
+      wantLook = new THREE.Vector3(px, gy + 0.9, m.z);
       kPos = 3;
       roll = 0;
     } else {
       const back = 5.2 - speedK * -0.8;
-      wantPos = new THREE.Vector3(px - fx_ * back, 2.3 + speedK * 0.2, m.z - fz_ * back);
-      wantLook = new THREE.Vector3(px + fx_ * 5.5, 1.05, m.z + fz_ * 5.5);
+      wantPos = new THREE.Vector3(px - fx_ * back, gy + 2.3 + speedK * 0.2, m.z - fz_ * back);
+      wantLook = new THREE.Vector3(px + fx_ * 5.5, gy + 1.05, m.z + fz_ * 5.5);
       if (performance.now() - startedAt < 1200) kPos = 2.5; // ease out of the showroom orbit
     }
 
@@ -197,12 +193,14 @@ async function start() {
     const k = 1 - Math.exp(-dt * kPos);
     camPos.lerp(wantPos, k);
     camLook.lerp(wantLook, 1 - Math.exp(-dt * 10));
+    // never let the camera dip into a hillside
+    camPos.y = Math.max(camPos.y, terrainY(-camPos.x, camPos.z) + 0.9);
     camera.position.copy(camPos);
     if (shake > 0) {
       camera.position.x += (Math.random() - 0.5) * 0.25 * shake;
       camera.position.y += (Math.random() - 0.5) * 0.25 * shake;
     }
-    if (started && game.state === 'riding' && m.speed > 1) camera.position.y += Math.sin(clock * 22) * 0.008 * speedK;
+    if (started && game.state === 'riding' && Math.abs(m.speed) > 1) camera.position.y += Math.sin(clock * 22) * 0.008 * speedK;
     camera.up.set(Math.sin(roll), Math.cos(roll), 0);
     camera.lookAt(camLook);
     const fov = BASE_FOV + speedK * 9 - shoutBlend * 14;
@@ -219,15 +217,15 @@ async function start() {
       emit.exhaust = riding ? (inp.throttle ? 0.045 : 0.12) : 0.5;
       moped.exhaustTip.getWorldPosition(tmp);
       const k = riding ? 1 : 0.3;
-      fx.spawn(tmp.x, tmp.y, tmp.z, (Math.random() - 0.5) * 0.4, 0.2, -0.6 - m.speed * 0.1, 0.9, 0.1, 0.5 * k + 0.2, game.sputtering ? 0x222222 : 0xb8c4d0, 0.35 * k + 0.1, 1.6, 0.3);
+      fx.spawn(tmp.x, tmp.y, tmp.z, (Math.random() - 0.5) * 0.4, 0.2, -0.6 - Math.abs(m.speed) * 0.1, 0.9, 0.1, 0.5 * k + 0.2, game.sputtering ? 0x222222 : 0xb8c4d0, 0.35 * k + 0.1, 1.6, 0.3);
     }
     // dust off the road / kicked up from the rear wheel
     emit.dust -= dt;
     const off = Math.abs(m.x - roadCenterX(m.z)) > 3.5;
-    if (started && riding && m.speed > 3 && emit.dust <= 0 && (off || m.speed > 12)) {
+    if (started && riding && Math.abs(m.speed) > 3 && emit.dust <= 0 && (off || Math.abs(m.speed) > 12)) {
       emit.dust = off ? 0.03 : 0.12;
       moped.root.getWorldPosition(tmp);
-      fx.spawn(tmp.x + (Math.random() - 0.5) * 0.3, 0.12, tmp.z - 0.6, (Math.random() - 0.5) * 1.2, 0.5 + Math.random() * 0.5, -m.speed * 0.15, off ? 1.1 : 0.7, 0.2, off ? 1.2 : 0.6, off ? 0x9a8458 : 0xb0a88c, off ? 0.5 : 0.18, 1.8);
+      fx.spawn(tmp.x + (Math.random() - 0.5) * 0.3, tmp.y + 0.12, tmp.z - 0.6, (Math.random() - 0.5) * 1.2, 0.5 + Math.random() * 0.5, -Math.abs(m.speed) * 0.15, off ? 1.1 : 0.7, 0.2, off ? 1.2 : 0.6, off ? 0x9a8458 : 0xb0a88c, off ? 0.5 : 0.18, 1.8);
     }
     // smoke from a dead engine / sputtering
     emit.smoke -= dt;
@@ -285,8 +283,13 @@ async function start() {
     }
 
     const m = game.moped;
-    moped.root.position.set(wx(m.x), 0, m.z);
-    moped.root.rotation.y = -m.heading;
+    // stand on the terrain: height from the two wheels, pitch along the slope, roll across it
+    const sh = Math.sin(m.heading), ch = Math.cos(m.heading);
+    const hF = terrainY(m.x + sh * 0.6, m.z + ch * 0.6), hB = terrainY(m.x - sh * 0.6, m.z - ch * 0.6);
+    const hR = terrainY(m.x + ch * 0.35, m.z - sh * 0.35), hL = terrainY(m.x - ch * 0.35, m.z + sh * 0.35);
+    const clampTilt = (v) => Math.max(-0.9, Math.min(0.9, v));
+    moped.root.position.set(wx(m.x), (hF + hB) / 2, m.z);
+    moped.root.rotation.set(-clampTilt(Math.atan2(hF - hB, 1.2)), -m.heading, clampTilt(-Math.atan2(hR - hL, 0.7)), 'YXZ');
     moped.update(dt, {
       speed: m.speed,
       steer: m.steerAngle,
@@ -297,11 +300,14 @@ async function start() {
       throttle: inp.throttle,
     }, clock);
     audio.engine({
-      speed: m.speed,
+      speed: Math.abs(m.speed),
       throttle: inp.throttle,
       running: started && game.state === 'riding',
       sputtering: game.sputtering,
     }, clock);
+
+    proximity.moped.value.copy(moped.root.position).y += 0.6;
+    proximity.cam.value.copy(camera.position);
 
     // the sun and its shadow follow the moped
     sun.target.position.copy(moped.root.position);
@@ -314,7 +320,7 @@ async function start() {
     sky.follow(camera);
     hud.update(dt);
     renderer.info.reset();
-    post.render(dt, { frustration: game.frustration.level / 100, speed: started ? Math.min(1, m.speed / 15) : 0, time: clock });
+    post.render(dt, { frustration: game.frustration.level / 100, speed: started ? Math.min(1, Math.abs(m.speed) / 15) : 0, time: clock });
     requestAnimationFrame(frame);
   }
 
@@ -336,6 +342,11 @@ async function start() {
       get fixSequence() { return game.breakdown ? [...game.breakdown.sequence] : []; },
       forceBreakdown: (type) => game.forceBreakdown(type),
       maxFrustration: () => game.frustration.max(),
+      get heading() { return game.moped.heading; },
+      get mopedY() { return moped.root.position.y; },
+      get mopedPitch() { return moped.root.rotation.x; },
+      terrainY: (x, z) => terrainY(x, z),
+      roadX: (z) => roadCenterX(z),
       get houses() { return world.houses.map((h) => ({ x: h.x, z: h.z, s: h.s })); },
       teleport: (z, heading = 0, x = roadCenterX(z)) => {
         game.moped.z = z;

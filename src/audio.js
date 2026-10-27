@@ -111,7 +111,6 @@ export function createAudio() {
       if (!ctx) return;
       if (e.type === 'breakdown') burst(0.3, 300, 0.4);
       else if (e.type === 'kickFail') burst(0.25, 900, 0.15);
-      else if (e.type === 'bump') burst(Math.min(0.5, 0.1 + e.impact * 0.03), 140, 0.3);
       else if (e.type === 'fixed') burst(0.15, 1500, 0.2);
     },
     kick() {

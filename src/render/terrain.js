@@ -1,17 +1,12 @@
 import * as THREE from 'three';
 import { roadCenterX, ROAD_HALF_WIDTH } from '../logic/road.js';
+import { terrainY } from '../logic/terrain.js';
 import { wx, noise2, smoothstep, canvasTexture, mulberry32 } from './util.js';
 
-// Height of the ground at a logic-space point. The road corridor is flat, the land rolls away from it.
-export function terrainY(x, z) {
-  const d = Math.abs(x - roadCenterX(z));
-  const mask = smoothstep(8, 38, d);
-  const h = (noise2(x * 0.018, z * 0.018) - 0.35) * 9 + (noise2(x * 0.06, z * 0.06) - 0.5) * 1.6;
-  return Math.max(-0.6 * mask, h * mask);
-}
+export { terrainY };
 
 const COLS = [];
-for (const u of [0, 3.5, 5, 6.5, 8, 10, 12.5, 15.5, 19, 23, 28, 34, 41, 50, 62, 78, 100, 130, 170]) {
+for (const u of [0, 3.5, 5, 6.5, 8, 10, 12.5, 15.5, 19, 23, 28, 34, 41, 50, 62, 78, 100, 130, 160, 185, 210, 235, 260, 285, 310, 335, 360, 385, 410, 435, 460, 485, 510, 535]) {
   if (u === 0) COLS.push(0); else COLS.push(-u, u);
 }
 COLS.sort((a, b) => a - b);
@@ -23,7 +18,12 @@ const PLOUGH = new THREE.Color(0x8a6340);
 const VERGE = new THREE.Color(0x9a8a5a);
 const tmp = new THREE.Color();
 
-function groundColor(x, z, d, out) {
+const ROCK = new THREE.Color(0x7d7a72);
+const ROCK_DARK = new THREE.Color(0x5e5a55);
+const SNOW = new THREE.Color(0xf2f5f8);
+const FOREST = new THREE.Color(0x3d7d3e);
+
+function groundColor(x, z, d, out, y = 0) {
   const n = noise2(x * 0.045, z * 0.045);
   const n2 = noise2(x * 0.2 + 9, z * 0.2);
   out.copy(GRASS[Math.min(3, Math.floor(n * 4))]).lerp(GRASS[Math.floor(n2 * 3.99)], 0.4);
@@ -37,12 +37,17 @@ function groundColor(x, z, d, out) {
   }
   // dusty verge next to the road
   out.lerp(VERGE, 1 - smoothstep(4.2, 6.4, d));
-  // darker, greener in the valleys
+  // mountains: forest, then bare rock, then snow
+  if (y > 8) {
+    out.lerp(FOREST, smoothstep(8, 22, y) * 0.8);
+    out.lerp(tmp.copy(ROCK).lerp(ROCK_DARK, noise2(x * 0.05, z * 0.05)), smoothstep(40, 62, y));
+    out.lerp(SNOW, smoothstep(82, 98, y + (noise2(x * 0.04, z * 0.04) - 0.5) * 14));
+  }
   return out;
 }
 
 export function buildTerrain(scene, length) {
-  const z0 = -90, z1 = length + 170, step = 5;
+  const z0 = -130, z1 = length + 200, step = 5;
   const rows = Math.ceil((z1 - z0) / step) + 1;
   const pos = new Float32Array(rows * COLS.length * 3);
   const colr = new Float32Array(rows * COLS.length * 3);
@@ -55,7 +60,7 @@ export function buildTerrain(scene, length) {
       const x = c + u;
       const y = terrainY(x, z);
       pos[k] = wx(x); pos[k + 1] = y; pos[k + 2] = z;
-      groundColor(x, z, Math.abs(u), tmp);
+      groundColor(x, z, Math.abs(u), tmp, y);
       colr[k] = tmp.r; colr[k + 1] = tmp.g; colr[k + 2] = tmp.b;
       k += 3;
       uv[ku++] = wx(x) / 6; uv[ku++] = z / 6;

@@ -61,7 +61,10 @@ export function canvasTexture(w, h, draw, { repeat = null, srgb = true, aniso = 
 // shared wind clock; materials patched with addWind() sway with it
 export const windUniform = { value: 0 };
 export function addWind(material, { amount = 0.15, freq = 1.4, heightScale = 1 } = {}) {
-  material.onBeforeCompile = (shader) => {
+  const prev = material.onBeforeCompile;
+  const prevKey = material.customProgramCacheKey.bind(material);
+  material.onBeforeCompile = (shader, renderer) => {
+    prev.call(material, shader, renderer);
     shader.uniforms.uWind = windUniform;
     shader.vertexShader = 'uniform float uWind;\n' + shader.vertexShader.replace(
       '#include <begin_vertex>',
@@ -76,5 +79,44 @@ export function addWind(material, { amount = 0.15, freq = 1.4, heightScale = 1 }
        transformed.z += cos(uWind * ${(freq * 0.8).toFixed(2)} + wPhase * 1.3) * ${amount.toFixed(3)} * 0.6 * wH;`,
     );
   };
+  material.customProgramCacheKey = () => `${prevKey()}|wind${amount}|${freq}|${heightScale}`;
+  return material;
+}
+
+// Scenery is not solid, so you can ride straight through houses and trees. To keep that from looking messy,
+// anything close to the moped or to the camera dithers away instead of filling the screen.
+export const proximity = { moped: { value: new THREE.Vector3() }, cam: { value: new THREE.Vector3() } };
+// inner/outer: horizontal distance (m) from the moped below which the object is fully gone / fully there
+export function addProximityFade(material, { inner = 1.2, outer = 4.5 } = {}) {
+  const prev = material.onBeforeCompile;
+  const prevKey = material.customProgramCacheKey.bind(material);
+  material.onBeforeCompile = (shader, renderer) => {
+    prev.call(material, shader, renderer);
+    shader.uniforms.uPfMoped = proximity.moped;
+    shader.uniforms.uPfCam = proximity.cam;
+    shader.vertexShader = 'varying vec3 vPfWorld;\n' + shader.vertexShader.replace(
+      '#include <project_vertex>',
+      `#include <project_vertex>
+       vec4 pfLocal = vec4(transformed, 1.0);
+       #ifdef USE_INSTANCING
+         pfLocal = instanceMatrix * pfLocal;
+       #endif
+       vPfWorld = (modelMatrix * pfLocal).xyz;`,
+    );
+    shader.fragmentShader = `varying vec3 vPfWorld; uniform vec3 uPfMoped; uniform vec3 uPfCam;
+      float pfBayer(vec2 p) {
+        int x = int(mod(p.x, 4.0)); int y = int(mod(p.y, 4.0)); int i = x + y * 4;
+        float m[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+        return (m[i] + 0.5) / 16.0;
+      }
+      ` + shader.fragmentShader.replace(
+      'void main() {',
+      `void main() {
+        float pfM = smoothstep(${inner.toFixed(2)}, ${outer.toFixed(2)}, distance(vPfWorld.xz, uPfMoped.xz));
+        float pfC = smoothstep(1.8, 4.5, distance(vPfWorld, uPfCam));
+        if (min(pfM, pfC) < pfBayer(gl_FragCoord.xy)) discard;`,
+    );
+  };
+  material.customProgramCacheKey = () => `${prevKey()}|prox${inner}|${outer}`;
   return material;
 }

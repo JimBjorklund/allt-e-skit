@@ -27,6 +27,13 @@ test('visual tour at high quality', async ({ page }) => {
     await page.screenshot({ path: `${SCREENS}/${name}.png` });
     await page.keyboard.up('w');
   }
+  // up a mountain, and a look back down over the valley
+  const m = await page.evaluate(() => { const G = window.__game; const z = 600; const x = G.roadX(z) + 250; return { x, z }; });
+  await page.evaluate(({ x, z }) => window.__game.teleport(z, Math.PI / 2, x), m);
+  await page.keyboard.down('w');
+  await page.waitForFunction(() => window.__game.mopedY > 25, null, { timeout: 90000 });
+  await page.screenshot({ path: `${SCREENS}/v8-mountain-climb.png` });
+  await page.keyboard.up('w');
   await page.evaluate(() => window.__game.teleport(300));
   await page.evaluate(() => window.__game.forceBreakdown('engine'));
   await page.waitForTimeout(1800);

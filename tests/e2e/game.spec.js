@@ -58,7 +58,7 @@ test('throttle moves the moped, brake stops it', async ({ page }) => {
   expect(await g(page, 'G.position.z')).toBeGreaterThan(z0 + 2);
   await page.keyboard.up('w');
   await page.keyboard.down('s');
-  await page.waitForTimeout(3500);
+  await page.waitForFunction(() => window.__game.speed < 0.5, null, { timeout: 30000 }); // braked to a stop
   await page.keyboard.up('s');
   expect(await g(page, 'G.speed')).toBeLessThan(0.5);
   expect(typeof (await g(page, 'G.fps'))).toBe('number');
@@ -136,14 +136,81 @@ test('reaching the finish shows the finish screen and ride again works', async (
   expect(await g(page, 'G.position.z')).toBeLessThan(5);
 });
 
-test('houses are solid: you cannot ride through a wall', async ({ page }) => {
+test('scenery is not solid: you can ride straight through a house', async ({ page }) => {
   const house = await page.evaluate(() => window.__game.houses[3]);
-  // start 10 m before the house, lined up with it, heading straight at it
   await page.evaluate(([z, x]) => window.__game.teleport(z, 0, x), [house.z - 10, house.x]);
   await page.keyboard.down('w');
-  await page.waitForTimeout(3500);
+  await page.waitForFunction((hz) => window.__game.position.z > hz + 6, house.z, { timeout: 40000 });
+  await shot(page, '08-through-house');
   await page.keyboard.up('w');
-  const z = await g(page, 'G.position.z');
-  expect(z).toBeLessThan(house.z - 2); // stopped in front of the house instead of passing through it
-  await shot(page, '08-wall');
+  expect(await g(page, 'G.position.z')).toBeGreaterThan(house.z + 6);
+});
+
+test('you can go backwards: hold S from a standstill', async ({ page }) => {
+  await page.evaluate(() => window.__game.teleport(100));
+  await page.keyboard.down('s');
+  await page.waitForFunction(() => window.__game.position.z < 98, null, { timeout: 30000 });
+  expect(await g(page, 'G.speed')).toBeLessThan(0);
+  await shot(page, '09-reversing');
+  await page.keyboard.up('s');
+  // and forwards again afterwards
+  await page.keyboard.down('w');
+  await page.waitForFunction(() => window.__game.speed > 2, null, { timeout: 30000 });
+  await page.keyboard.up('w');
+});
+
+test('hills are solid ground: the moped rides on top of them', async ({ page }) => {
+  // find a spot on a real hill and put the moped there
+  const spot = await page.evaluate(() => {
+    const G = window.__game;
+    for (let z = 120; z < 1000; z += 20) for (const side of [1, -1]) for (let d = 40; d < 120; d += 5) {
+      const x = G.roadX(z) + side * d;
+      if (G.terrainY(x, z) > 5) return { x, z, y: G.terrainY(x, z) };
+    }
+    return null;
+  });
+  expect(spot, 'no hill found').not.toBeNull();
+  await page.evaluate(({ x, z }) => window.__game.teleport(z, 0, x), spot);
+  await page.waitForTimeout(1500);
+  const y = await g(page, 'G.mopedY');
+  const ground = await page.evaluate(({ x, z }) => window.__game.terrainY(x, z), await g(page, 'G.position'));
+  expect(y).toBeGreaterThan(3); // up on the hill, not buried in it at ground level
+  expect(Math.abs(y - ground)).toBeLessThan(0.6);
+  await shot(page, '10-on-a-hill');
+});
+
+test('mountains can be climbed', async ({ page }) => {
+  // ride from the foot of a mountain slope up it
+  const start = await page.evaluate(() => {
+    const G = window.__game;
+    const z = 600, x = G.roadX(z) + 250;
+    return { x, z, y: G.terrainY(x, z) };
+  });
+  await page.evaluate(({ x, z }) => window.__game.teleport(z, Math.PI / 2, x), start);
+  await page.keyboard.down('w');
+  await page.waitForFunction((y0) => window.__game.mopedY > y0 + 15, start.y, { timeout: 60000 });
+  await shot(page, '11-climbing');
+  await page.keyboard.up('w');
+  expect(await g(page, 'G.mopedY')).toBeGreaterThan(start.y + 15);
+});
+
+test('stress: riding around at random never breaks anything', async ({ page }) => {
+  test.setTimeout(120000);
+  const keys = ['w', 's', 'a', 'd'];
+  await page.evaluate(() => window.__game.teleport(300));
+  const bad = [];
+  for (let i = 0; i < 40; i++) {
+    const k = keys[Math.floor(Math.random() * keys.length)];
+    const k2 = keys[Math.floor(Math.random() * keys.length)];
+    await page.keyboard.down(k);
+    await page.keyboard.down(k2);
+    await page.waitForTimeout(400);
+    await page.keyboard.up(k);
+    await page.keyboard.up(k2);
+    const s = await page.evaluate(() => ({ p: window.__game.position, y: window.__game.mopedY, v: window.__game.speed, st: window.__game.state }));
+    if (![s.p.x, s.p.z, s.y, s.v].every(Number.isFinite)) bad.push(s);
+    if (s.st === 'broken') await page.evaluate(() => window.__game.teleport(window.__game.position.z));
+  }
+  expect(bad).toEqual([]);
+  await shot(page, '12-after-stress');
 });

@@ -52,7 +52,7 @@ export function createSky(scene, renderer) {
   scene.environmentIntensity = 0.55;
   pmrem.dispose();
 
-  scene.fog = new THREE.Fog(HORIZON, 80, 470);
+  scene.fog = new THREE.Fog(HORIZON, 90, 680);
   return {
     follow(camera) { dome.position.copy(camera.position); },
   };

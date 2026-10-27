@@ -21,3 +21,9 @@ export function noise2(x, y) {
   const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
+
+export const clamp01 = (v) => Math.min(1, Math.max(0, v));
+export const smoothstep = (a, b, v) => {
+  const t = clamp01((v - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};

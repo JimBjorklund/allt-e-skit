@@ -14,7 +14,7 @@ function faceFor(level) {
 }
 
 // round speedometer drawn on a canvas
-function drawGauge(ctx, kmh, size) {
+function drawGauge(ctx, kmh, size, reversing = false) {
   const c = size / 2, r = size * 0.45;
   const a0 = Math.PI * 0.75, sweep = Math.PI * 1.5;
   ctx.clearRect(0, 0, size, size);
@@ -47,7 +47,7 @@ function drawGauge(ctx, kmh, size) {
   ctx.fillStyle = '#ff4a30'; ctx.beginPath(); ctx.arc(c, c, 5, 0, Math.PI * 2); ctx.fill();
   // digital readout
   ctx.fillStyle = '#fff'; ctx.font = `900 ${size * 0.14}px "Segoe UI", sans-serif`;
-  ctx.fillText(String(Math.round(kmh)), c, c + r * 0.52);
+  ctx.fillText((reversing ? 'R ' : '') + String(Math.round(kmh)), c, c + r * 0.52);
   ctx.font = `700 ${size * 0.05}px "Segoe UI", sans-serif`; ctx.fillStyle = 'rgba(255,255,255,.7)';
   ctx.fillText('KM/H', c, c + r * 0.72);
 }
@@ -121,7 +121,7 @@ export function createHud(game, { onRestart }) {
       el.fill.style.width = `${pct}%`;
       el.dot.style.left = `${pct}%`;
       smoothKmh += (game.moped.speed * 3.6 - smoothKmh) * Math.min(1, dt * 10);
-      drawGauge(gauge, smoothKmh, 340);
+      drawGauge(gauge, Math.abs(smoothKmh), 340, smoothKmh < -0.5);
       const lvl = game.frustration.level;
       el.meter.style.width = `${lvl}%`;
       const face = faceFor(lvl);

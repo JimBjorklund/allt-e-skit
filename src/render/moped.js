@@ -235,7 +235,8 @@ export function buildMoped() {
     kickPulse() { kickT = 1; },
     root, headAnchor, exhaustTip, tailAnchor,
     update(dt, { speed, steer, frustration, breakdownType, sputtering, shout, throttle }, time) {
-      const spin = (speed * dt) / 0.288;
+      const spin = (speed * dt) / 0.288; // signed: the wheels turn backwards when reversing
+      speed = Math.abs(speed);
       front.spin.rotation.x += spin;
       rear.spin.rotation.x += spin;
       const yaw = -steer * 0.35;

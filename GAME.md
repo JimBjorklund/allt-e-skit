@@ -21,7 +21,7 @@ frustration he shouts one of the shout lines below.
 
 ## Controls
 - W / Up: throttle
-- S / Down: brake
+- S / Down: brake (hold it at a standstill to reverse)
 - A / D or Left / Right: steer
 - Space: kick-start
 - E: fix
