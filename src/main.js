@@ -62,7 +62,7 @@ async function start() {
   const fx = createParticles(scene, 700);
   const post = createPost(renderer, scene, camera);
 
-  // ---- quality: start high, drop a level if the machine can't hold the frame rate
+  // ---- quality: always high unless ?quality=medium|low is in the URL (frame rate is not a goal of this game)
   const forced = QUALITY_BY_NAME[params.get('quality')];
   let quality = forced ?? 2;
   function applyQuality() {
@@ -102,9 +102,6 @@ async function start() {
   window.addEventListener('keydown', begin);
   startScreen.addEventListener('pointerdown', begin);
 
-  let fps = 60;
-  let slowFor = 0;
-  let sinceChange = 0;
   const camPos = new THREE.Vector3();
   const camLook = new THREE.Vector3();
   let camInit = false;
@@ -258,14 +255,6 @@ async function start() {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     clock += dt;
-    if (dt > 0) fps += (1 / dt - fps) * 0.08;
-
-    // adaptive quality
-    sinceChange += dt;
-    if (forced === undefined && started && sinceChange > 3) {
-      slowFor = fps < 38 ? slowFor + dt : 0;
-      if (slowFor > 1.5 && quality > 0) { quality -= 1; slowFor = 0; sinceChange = 0; applyQuality(); }
-    }
 
     const inp = input.read();
     if (started) {
@@ -335,7 +324,6 @@ async function start() {
       get breakdowns() { return game.breakdowns; },
       get frustration() { return game.frustration.level; },
       get shouts() { return game.shoutCount; },
-      get fps() { return fps; },
       get quality() { return quality; },
       get drawCalls() { return renderer.info.render.calls; },
       get triangles() { return renderer.info.render.triangles; },

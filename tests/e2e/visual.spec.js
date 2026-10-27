@@ -45,7 +45,5 @@ test('visual tour at high quality', async ({ page }) => {
   await page.evaluate(() => { window.__game.maxFrustration(); window.__game.forceBreakdown('tyre'); });
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${SCREENS}/v7-shout-face.png` });
-  const info = await page.evaluate(() => ({ fps: window.__game.fps, calls: window.__game.drawCalls, tris: window.__game.triangles, q: window.__game.quality }));
-  console.log('render info', JSON.stringify(info));
   expect(errors).toEqual([]);
 });

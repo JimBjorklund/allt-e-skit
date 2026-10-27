@@ -19,6 +19,16 @@ frustration he shouts one of the shout lines below.
   then the meter resets.
 - Finish screen: time, number of breakdowns, number of shouts, "Ride again" button.
 
+## Free roaming
+- You can ride anywhere, not only on the road. Riding off the road is only a little slower
+  (about 70% of road top speed), never crawling.
+- Scenery is NOT solid: houses, trees, fences, animals and signs can be ridden straight through.
+  (Things near the moped and the camera fade out so it stays readable.)
+- The ground is real: rolling hills and mountains. The moped stands on top of them, tilts with
+  the slope, slows going uphill and speeds up downhill, and can climb them (steep cliffs are
+  too steep).
+- You can reverse and turn all the way round. The only edges are far away.
+
 ## Controls
 - W / Up: throttle
 - S / Down: brake (hold it at a standstill to reverse)
@@ -27,17 +37,13 @@ frustration he shouts one of the shout lines below.
 - E: fix
 
 ## Shout lines (one is picked at random)
-- <SHOUT 1>
-- <SHOUT 2>
-- <SHOUT 3>
+Written one per line in `public/shouts.txt` (placeholders for now; replace them).
 
 ## Internal jokes to include
-- <JOKE 1>
-- <JOKE 2>
-- <JOKE 3>
+Written one per line in `public/jokes.txt` (placeholders for now; replace them). They appear on roadside signs.
 
 ## Look and sound
-- Low-poly, bright colours, made in code.
+- Bright colours, made in code. Looks and frame rate are NOT a priority; the idea and mechanics are.
 - Engine sound that sputters before a breakdown.
 
 ## Later (not in version 1)

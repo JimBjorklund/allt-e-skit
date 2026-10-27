@@ -61,7 +61,6 @@ test('throttle moves the moped, brake stops it', async ({ page }) => {
   await page.waitForFunction(() => window.__game.speed < 0.5, null, { timeout: 30000 }); // braked to a stop
   await page.keyboard.up('s');
   expect(await g(page, 'G.speed')).toBeLessThan(0.5);
-  expect(typeof (await g(page, 'G.fps'))).toBe('number');
 });
 
 test('engine breakdown: hammer space to kick-start', async ({ page }) => {
@@ -144,6 +143,17 @@ test('scenery is not solid: you can ride straight through a house', async ({ pag
   await shot(page, '08-through-house');
   await page.keyboard.up('w');
   expect(await g(page, 'G.position.z')).toBeGreaterThan(house.z + 6);
+});
+
+test('off-road is only a little slower: grass is still fast', async ({ page }) => {
+  // on the grass verge just beside the straight start of the road
+  await page.evaluate(() => window.__game.teleport(15, 0, window.__game.roadX(15) + 5));
+  await page.keyboard.down('w');
+  await page.waitForFunction(() => window.__game.speed > 9, null, { timeout: 40000 }); // 9 m/s = 32 km/h
+  const x = await g(page, 'G.position.x');
+  expect(Math.abs(x - (await page.evaluate(() => window.__game.roadX(window.__game.position.z))))).toBeGreaterThan(3.5); // really off the road
+  await shot(page, '09b-offroad');
+  await page.keyboard.up('w');
 });
 
 test('you can go backwards: hold S from a standstill', async ({ page }) => {

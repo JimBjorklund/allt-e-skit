@@ -73,7 +73,7 @@ describe('driving', () => {
     m.x = roadCenterX(m.z) + ROAD_HALF_WIDTH + 5;
     run(m, { ...none, throttle: true }, 8, 1 / 60, roadCenterX);
     expect(m.speed).toBeLessThan(MAX_SPEED * 0.85);
-    expect(m.speed).toBeGreaterThan(MAX_SPEED * 0.6);
+    expect(m.speed).toBeGreaterThanOrEqual(MAX_SPEED * 0.7); // never crawling
   });
   it('rolling uphill loses speed faster than on the flat, downhill gains it', () => {
     const coast = (slope) => {
